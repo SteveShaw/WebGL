@@ -48,7 +48,9 @@ var ANGLE_STEP = 45.0;
 var gAngle = [0.0,0.0,0.0,0.0,0.0];
 var gMoveOffset = [45.0,45.0,45.0,45.0,45.0];
 var gLookAtPos = [0,0,0];
-
+var gUseDynamicCamera = false;
+var gDynamicCameraPosition = new Float32Array(3);
+var gDynamicCameraLookAt = new Float32Array(3);
 
 var FizzyText = function()
 {
@@ -61,21 +63,34 @@ var FizzyText = function()
     this.stop = false;
     this.SpinUp = spinUp;
     this.SpinDown = spinDown;
+		this.UseDynamicCamera =false;
 }
 
 function createGUI()
 {
     var text = new FizzyText();
-    var gui = new dat.GUI({autoPlace:true});
-    gui.add(text,"message");
-    var base_controller = gui.add(text,"Base",-180,180)
-    var joint1_controller = gui.add(text,"Joint1",-90,90);
-    var joint2_controller = gui.add(text,"Joint2",-90,90);
-    var joint3_controller = gui.add(text,"Joint3",-90,90);
-    var teapot_controller = gui.add(text,"teapot",-30,0);
-    var stop_control = gui.add(text,"stop");
-    gui.add(text,"SpinUp");
-    gui.add(text,"SpinDown");
+    var gui = new dat.GUI({autoPlace:true});//{autoPlace:true}
+
+	var control = gui.addFolder('Robot Aram');
+    // gui.add(text,"message");
+    control.add(text,"message");
+	
+    // var base_controller = gui.add(text,"Base",-180,180)
+    var base_controller = control.add(text,"Base",-180,180)
+    // var joint1_controller = gui.add(text,"Joint1",-90,90);
+    var joint1_controller = control.add(text,"Joint1",-90,90);
+    // var joint2_controller = gui.add(text,"Joint2",-90,90);
+    var joint2_controller = control.add(text,"Joint2",-90,90);
+    // var joint3_controller = gui.add(text,"Joint3",-90,90);
+    var joint3_controller = control.add(text,"Joint3",-90,90);
+    // var teapot_controller = gui.add(text,"teapot",-30,0);
+    var teapot_controller = control.add(text,"teapot",-30,0);
+    // var stop_control = gui.add(text,"stop");
+    var stop_control = control.add(text,"stop");
+    // gui.add(text,"SpinUp");
+    control.add(text,"SpinUp");
+    // gui.add(text,"SpinDown");
+    control.add(text,"SpinDown");
 
     base_controller.onChange(function(value) {
         gAngle[0] = value;
@@ -101,22 +116,53 @@ function createGUI()
 
         if(value)
         {
-            myTmp = ANGLE_STEP;
-            ANGLE_STEP = 0;
+            myTmp = gMoveOffset;
+            gMoveOffset = [0.0,0.0,0.0,0.0,0.0];
         }
         else
         {
-            ANGLE_STEP = myTmp;
+            gMoveOffset = myTmp;
         }
     }
     );
+	
+	var camCtrl = gui.addFolder('Camera Control');
+	camCtrl.add(text,"UseDynamicCamera").onChange(
+		function (value)
+		{
+			gUseDynamicCamera = value;
+		}
+	);
+	
+	control.open();
+	camCtrl.open();
+	gui.width = 300;
+	gui.open();
+}
+
+function draw2D(ctx) {
+ ctx.clearRect(0, 0, 400, 400);  // Clear <hud>
+  // Draw triangle with white lines
+  // Draw white letters
+ ctx.font = '18px "Times New Roman"';
+ ctx.fillStyle = 'rgba(0, 0, 255, 1)';  // Set the letter color
+ ctx.fillText('Robot Arm', 25, 25);
+ ctx.font = 'bold 12px "Times New Roman"';
+ ctx.fillStyle = 'rgba(0, 255, 0, 1)';  // Set the letter color
+ ctx.fillText('Camera Movement: ASWD', 25, 50);
+ ctx.fillText('Camera view direction : Shift + ASWD', 200, 50);
+ ctx.fillText('Mouse --> Left: Drag; Right: Pan; Wheel: Zoom in/out', 25, 70);
 }
 
 function main() {
 
-    createGUI();
-
-    canvas = document.getElementById('webgl');
+	container = document.getElementById( 'container' );
+    canvas = document.createElement( 'canvas' );//document.getElementById('webgl');
+    // canvas = document.getElementById('webgl');
+	var hud = document.getElementById('hud');
+	// hud.removeEventListener('mousedown',null, false);
+	var ctx = hud.getContext('2d');
+	container.appendChild(canvas);
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -168,6 +214,8 @@ function main() {
     createMeshObjects();
 
     initGLContext(gl);
+	
+	createGUI();
 
 
 
@@ -181,7 +229,7 @@ function main() {
     camCtrlOrtho.target[0]=0;
     camCtrlOrtho.target[1]=50;
     camCtrlOrtho.target[2]=0;
-
+	
 
     document.onkeydown = function(ev) {
         handleKeys(ev,gl)
@@ -194,14 +242,18 @@ function main() {
     // renderStaticScence(gl,camPerspective);
     // gl.viewport(canvas.width*0.5,0,0.5*canvas.width,canvas.height);
     // renderStaticScence(gl,camOrtho);
+	var leftCam = camPerspective;
     var tick = function() {
+		draw2D(ctx);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gAngle = animate(gAngle);  // Update the rotation angle
         gl.viewport(0,0,0.5*canvas.width,canvas.height);
-        renderAnimatedScene(gl, camPerspective,gAngle);
+		if(gUseDynamicCamera)leftCam = dynamicCam;
+		else leftCam = camPerspective;
+        renderAnimatedScene(gl, leftCam,gAngle);
         gl.viewport(canvas.width*0.5,0,0.5*canvas.width,canvas.height);
         renderAnimatedScene(gl, camOrtho, gAngle);
-        camPerspective.updateMatrix();
+        leftCam.updateMatrix();
         camOrtho.updateMatrix();
         camCtrl.update();
         camCtrlOrtho.update();
@@ -465,6 +517,7 @@ function drawAxes(gl,camera,pos_x,pos_y,pos_z, reset) {
 
 function renderAnimatedScene(gl,camera,moveArray)
 {
+	var vecCamPos = new Vector3(gDynamicCameraPosition);
     var baseAngle = moveArray[0];
     var joint1Angle = moveArray[1];
     var joint2Angle = moveArray[2];
@@ -516,6 +569,9 @@ function renderAnimatedScene(gl,camera,moveArray)
     modelMatrix.translate(0.68738,18.23025,-0.35170);
     modelMatrix.concat(quatMatrix);
     modelMatrix.translate(-0.68738,-18.23025,0.35170);
+	//new added 
+	vecCamPos.elements.set(modelMatrix.multiplyVector3(vecCamPos).elements);
+	
     normalMatrix.setInverseOf(modelMatrix);
     normalMatrix.transpose();
     // Pass the transformation matrix for normal to u_NormalMatrix
@@ -577,6 +633,16 @@ function renderAnimatedScene(gl,camera,moveArray)
     gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix.elements);
     drawObject(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix,hand3IndexArray,handAmbientColor);
     drawObject(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix,teapotIndexArray,teapotAmbientColor);
+	
+	if(gUseDynamicCamera)
+	{
+		//change dynamic camera's position
+		dynamicCam.position.set(vecCamPos.elements);
+		//var vecLookAtPos = new Vector3(gDynamicCameraLookAt);
+		//gDynamicCameraLookAt.set(modelMatrix.multiplyVector3(vecLookAtPos).elements);
+		dynamicCam.lookAt(gDynamicCameraLookAt[0],gDynamicCameraLookAt[1],gDynamicCameraLookAt[2]);
+		dynamicCam.updateProjectionMatrix();
+	}
 }
 
 function createCamera(width, height)
@@ -591,6 +657,16 @@ function createCamera(width, height)
     camOrtho.up.set([0,1,0]);
     camOrtho.position.set([0,200,500]);
     camOrtho.lookAt(0.0,0.0,0.0);
+	
+		dynamicCam = new PerspectiveCamera(35,0.5*width/height,1,2000);
+		dynamicCam.position.set([-102.43767,107.63019,22.75545]);
+		gDynamicCameraPosition.set([-102.43767,107.63019,22.75545]);
+		dynamicCam.aspect = 0.5*width/ height;
+		// dynamicCam.lookAt(-300,115,22.75545);
+		dynamicCam.lookAt(0,0,0);
+		dynamicCam.updateProjectionMatrix();
+		gDynamicCameraLookAt.set([0,0,0]);
+	
 
     // console.log(cam.projectionMatrix.elements);
     // console.log(cam.viewMatrix.elements);
@@ -806,7 +882,7 @@ function handleKeys(event) {
     //camCtrl.target[1] = gLookAtPos[1];
     //camCtrl.target[2] = gLookAtPos[2];
 
-    camPerspective.updateProjectionMatrix();
+    camPerspective.updateMatrix();
     camCtrl.update();
 
     // console.log(event.keyCode);
