@@ -63,10 +63,17 @@ var FizzyText = function()
     this.stop = false;
     this.SpinUp = spinUp;
     this.SpinDown = spinDown;
-		this.UseDynamicCamera =false;
+	this.UseDynamicCamera =false;
+	
+	this.left = 0.5 * canvas.width / - 2;
+	this.right = 0.5 * canvas.width /  2;
+	this.top = canvas.height/2;
+	this.bottom = canvas.height/-2;
+	this.near = 1;
+	this.far = 2000;
 }
 
-function createGUI()
+function createGUI(cam)
 {
     var text = new FizzyText();
     var gui = new dat.GUI({autoPlace:true});//{autoPlace:true}
@@ -126,6 +133,59 @@ function createGUI()
     }
     );
 	
+	var orthoCtl = gui.addFolder('Frustum Control');
+	orthoCtl.add(text,'left',-0.5 * canvas.width/2,0).onChange(
+		function(value)
+		{
+			cam.left = value;
+			cam.updateProjectionMatrix();
+		}
+	)
+	
+	orthoCtl.add(text,'right',0,0.5 * canvas.width/2).onChange(
+		function(value)
+		{
+			cam.right = value;
+			cam.updateProjectionMatrix();
+		}
+	)
+	
+	orthoCtl.add(text,'top',0,canvas.height/2).onChange(
+		function(value)
+		{
+			cam.top = value;
+			cam.updateProjectionMatrix();
+		}
+	)
+	
+	orthoCtl.add(text,'bottom',-canvas.height/2,0).onChange(
+		function(value)
+		{
+			cam.bottom = value;
+			cam.updateProjectionMatrix();
+		}
+	)
+	
+	orthoCtl.add(text,'near',0,10).onChange(
+		function(value)
+		{
+			cam.near = value;
+			cam.updateProjectionMatrix();
+			camPerspective.near = value;
+			camPerspective.updateProjectionMatrix();
+		}
+	)
+	
+	orthoCtl.add(text,'far',2000,5000).onChange(
+		function(value)
+		{
+			cam.far = value;
+			cam.updateProjectionMatrix();
+			camPerspective.near = value;
+			camPerspective.updateProjectionMatrix();
+		}
+	)
+	
 	var camCtrl = gui.addFolder('Camera Control');
 	camCtrl.add(text,"UseDynamicCamera").onChange(
 		function (value)
@@ -135,7 +195,9 @@ function createGUI()
 	);
 	
 	control.open();
+	orthoCtl.open();
 	camCtrl.open();
+	
 	gui.width = 300;
 	gui.open();
 }
@@ -215,11 +277,13 @@ function main() {
 
     initGLContext(gl);
 	
-	createGUI();
+	createCamera(SCREEN_WIDTH,SCREEN_HEIGHT);
+	
+	createGUI(camOrtho);
 
 
 
-    createCamera(SCREEN_WIDTH,SCREEN_HEIGHT);
+    
     camCtrl = new OrbitControls(camPerspective,canvas);
     camCtrl.target[0]=0;
     camCtrl.target[1]=50;
@@ -232,7 +296,7 @@ function main() {
 	
 
     document.onkeydown = function(ev) {
-        handleKeys(ev,gl)
+        handleKeys(ev)
     }
     //gl.clear(gl.DEPTH_BUFFER_BIT);
 
@@ -830,27 +894,25 @@ function handleKeys(event) {
         switch(event.keyCode) {//determine the key pressed
         case 65://a key
         case 37://left arrow
-            gLookAtPos[0] -= offset;
+            camCtrl.target[0] -= offset;
+			camCtrlOrtho.target[0] -= offset;			
             break;
         case 68://d key
         case 39://right arrow
-            gLookAtPos[0] += offset;
+            camCtrl.target[0] += offset;
+			camCtrlOrtho.target[0] += offset;			
             break;
         case 83://s key
         case 40://down arrow
-            gLookAtPos[1] -= offset;
-            gLookAtPos[2] += offset*0.1;
+            camCtrl.target[1] -= offset;
+			camCtrlOrtho.target[1] -= offset;			
             break;
         case 87://w key
         case 38://up arrow
-            gLookAtPos[1] += offset;
-            gLookAtPos[2] -= offset*0.1;
+            camCtrl.target[1] += offset;
+			camCtrlOrtho.target[1] += offset;			
             break;
         }
-
-        camCtrl.target[0] = gLookAtPos[0];
-        camCtrl.target[1] = gLookAtPos[1];
-        camCtrl.target[2] = gLookAtPos[2];
     }
     else {
 
@@ -858,22 +920,40 @@ function handleKeys(event) {
         case 65://a key
         case 37://left arrow
             camPerspective.position[0]-=offset;
+			camCtrl.target[0]-=offset;
+			camOrtho.position[0]-=offset;
+			camCtrlOrtho.target[0]-=offset;
             break;
         case 68://d key
         case 39://right arrow
             camPerspective.position[0]+=offset;
+			camCtrl.target[0]+=offset;
+			camOrtho.position[0]+=offset;
+			camCtrlOrtho.target[0]+=offset;			
             break;
         case 83://s key
             camPerspective.position[1]-=offset;
+			camCtrl.target[1]-=offset;
+			camOrtho.position[1]-=offset;
+			camCtrlOrtho.target[1]-=offset;			
             break;
         case 40://down arrow
             camPerspective.position[2]+=offset;
+			camCtrl.target[2]+=offset;
+			camOrtho.position[2]+=offset;
+			camCtrlOrtho.target[2]+=offset;			
             break;
         case 87://w key
             camPerspective.position[1]+=offset;
+			camCtrl.target[1]+=offset;
+			camOrtho.position[1]+=offset;
+			camCtrlOrtho.target[1]+=offset;			
             break;
         case 38://up arrow
             camPerspective.position[2]-=offset;
+			camCtrl.target[2]-=offset;
+			camOrtho.position[2]-=offset;
+			camCtrlOrtho.target[2]-=offset;			
             break;
         }
     }
@@ -882,8 +962,8 @@ function handleKeys(event) {
     //camCtrl.target[1] = gLookAtPos[1];
     //camCtrl.target[2] = gLookAtPos[2];
 
-    camPerspective.updateMatrix();
-    camCtrl.update();
+    //camPerspective.updateMatrix();
+    //camCtrl.update();
 
     // console.log(event.keyCode);
     //renderScence(gl,ratio,u_MvpMatrix,angle);
