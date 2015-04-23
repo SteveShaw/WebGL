@@ -14,24 +14,21 @@ SimBase.prototype.addConstraints = function(c){
 SimBase.prototype.dotFinder = function(){
 }
 
-SimBase.prototype.solvert = function(t){
+SimBase.prototype.solvert = function(){
 }
 
 SimBase.prototype.applyContraints = function()
 {
 }
-SimBase.prototype.swap = function(s0,s1) {
-	var temp = s0;
-	s0 = s1;
-	s1 = temp;
+SimBase.prototype.swap = function() {
 }
-SimBase.prototype.render = function(gl){
-	
+SimBase.prototype.render = function(gl,cont){
+	gl.bufferSubData(gl.ARRAY_BUFFER,0,cont.meshes.curVert.subarray(0,cont.nextOff));
 }
-SimBase.prototype.update = function(gl,t){
+SimBase.prototype.update = function(gl,cont){
 	this.dotFinder();
-	this.render(gl);
-	this.solver(t);
+	this.render(gl,cont);
+	this.solver();
 	this.applyContraints();
 	
 	this.swap();
@@ -73,7 +70,7 @@ ClothSim = function(numX,numY,cont){
 ClothSim.prototype = Object.create(SimBase.prototype);
 ClothSim.prototype.constructor = ClothSim;
 ClothSim.prototype.resetForce = function(){
-	for(var i =0;i<this.numX*this.numY;++i)
+	for(var i =0;i<this.totalPoints;++i)
 	{
 		var offset = i*PART_MAXVAR;
 		this.S0[offset+PART_X_FTOT] = 0;
@@ -83,25 +80,28 @@ ClothSim.prototype.resetForce = function(){
 	
 }
 ClothSim.prototype.applyGeneralForce = function(f){
-	for(var i =0;i<this.numX*this.numY;++i)
+	for(var i =0;i<this.totalPoints;++i)
 	{
 		var offset = i*PART_MAXVAR;
 		if(i===0||i===this.numX){
 			continue;
 		}
 		
-		f.force
-		this.S0[offset+PART_X_FTOT] += f.force[0]*f.damp;
-		this.S0[offset+PART_Y_FTOT] += f.force[1]*f.damp;
-		this.S0[offset+PART_Z_FTOT] += f.force[2]*f.damp;
+		this.S0[offset+PART_X_FTOT] += f.force[0];
+		this.S0[offset+PART_Y_FTOT] += f.force[1];
+		this.S0[offset+PART_Z_FTOT] += f.force[2];
+		
+		this.S0[offset+PART_X_FTOT] -= this.S0[offset+PART_XVEL]*f.damp;
+		this.S0[offset+PART_Y_FTOT] -= this.S0[offset+PART_YVEL]*f.damp;
+		this.S0[offset+PART_Z_FTOT] -= this.S0[offset+PART_ZVEL]*f.damp;
 	}
 }
 
 ClothSim.prototype.applySpringForce = function(f){
-	var p0 = this.S0.subarray(f.ep0*PART_MAXVAR+PART_XPOS,f.ep0*PART_MAXVAR+PART_XPOS+3);
-	var p1 = this.S0.subarray(f.ep1*PART_MAXVAR+PART_XPOS,f.ep1*PART_MAXVAR+PART_XPOS+3);
-	var v0 = this.S0.subarray(f.ep0*PART_MAXVAR+PART_XVEL,f.ep0*PART_MAXVAR+PART_XVEL+3);
-	var v1 = this.S0.subarray(f.ep1*PART_MAXVAR+PART_XVEL,f.ep1*PART_MAXVAR+PART_XVEL+3);
+	var p0 = this.S0.subarray(f.pi0*PART_MAXVAR+PART_XPOS,f.pi0*PART_MAXVAR+PART_XPOS+3);
+	var p1 = this.S0.subarray(f.pi1*PART_MAXVAR+PART_XPOS,f.pi1*PART_MAXVAR+PART_XPOS+3);
+	var v0 = this.S0.subarray(f.pi0*PART_MAXVAR+PART_XVEL,f.pi0*PART_MAXVAR+PART_XVEL+3);
+	var v1 = this.S0.subarray(f.pi1*PART_MAXVAR+PART_XVEL,f.pi1*PART_MAXVAR+PART_XVEL+3);
 	
 	var vp0 = vec3.fromValues(p0[0],p0[1],p0[2]);
 	var vp1 = vec3.fromValues(p1[0],p1[1],p1[2]);
@@ -113,7 +113,7 @@ ClothSim.prototype.applySpringForce = function(f){
 	
 	var curLen = vec3.distance(vp0,vp1);
 	var leftTerm  = -f.k * (curLen-f.rest_dist);
-	var rightTerm = -f.damp * ((vec3.dot(deltaV,deltaP))/dist);
+	var rightTerm = -f.damp * ((vec3.dot(deltaV,deltaP))/curLen);
 	vec3.normalize(deltaP,deltaP);
 	vec3.scale(deltaP,deltaP,leftTerm+rightTerm);
 	
@@ -143,11 +143,11 @@ ClothSim.prototype.dotFinder = function(){
 	this.resetForce();
 	for(var i = 0;i<this.forces.length;++i)
 	{
-		var f = this.force[i];
+		var f = this.forces[i];
 		switch(f.type)
 		{
 				case F_GRAV_E:
-				f.update(this.dt);
+//				f.update(this.dt);
 				this.applyGeneralForce(f);	
 				break;
 				case F_SPRING:
@@ -178,6 +178,11 @@ ClothSim.prototype.initSim = function()
 			this.S0[offset+PART_XPOS] = ((i/(u-1)) *2.0-1.)* this.hsize;
 			this.S0[offset+PART_YPOS] = this.size+1;
 			this.S0[offset+PART_ZPOS] = j/(v-1.0)*this.size;
+			
+			this.S0[offset+PART_XVEL ] = 0;
+			this.S0[offset+PART_YVEL ] = 0;
+			this.S0[offset+PART_ZVEL ] = 0;
+			
 			this.S0[offset+PART_DIAM] = 2.5;
 			
 			this.S0[offset+PART_R] = 1;
@@ -213,53 +218,69 @@ ClothSim.prototype.initSim = function()
 		}
 	}
 	
+	var p0=0,p1=0;
 	this.faces = new Uint16Array(faces);
 			//setup springs
 		// Horizontal
 		for (var l1 = 0; l1 < v; l1++)	// v
 			for (var l2 = 0; l2 < (u - 1); l2++) {
-				this.forces.push((l1 * u)+ l2,(l1 * u) + l2 + 1,1000,0.5);
+				p0 = (l1*u)+l2;
+				this.forces.push(new SpringForce(p0, p0 + 1,1000,0.5));
 			}
 
 		// Vertical
 		for (l1 = 0; l1 < (u); l1++)
 			for (l2 = 0; l2 < (v - 1); l2++) {
-				this.forces.push((l2 * u) + l1,((l2 + 1) * u) + l1,1000,0.5);
+				p0 = (l2*u)+l1;
+				this.forces.push(p0,p0+1,1000,0.5);
 			}
 
 		// Shearing Springs
 		for (l1 = 0; l1 < (v - 1); l1++)
 			for (l2 = 0; l2 < (u - 1); l2++) {
-				this.forces.push((l1 * u) + l2,((l1 + 1) * u) + l2 + 1,1000,0.5);
-				this.forces.push(((l1 + 1) * u) + l2,(l1 * u) + l2 + 1,1000,0.5);
+				p0 = (l1*u)+l2;
+				p1 = ((l1+1)*u)+l2+1;
+				this.forces.push(new SpringForce(p0, p1,1000,0.5));
+				this.forces.push(new SpringForce(p1-1,p0+1,1000,0.5));
 			}
 
 		// Bend Springs
 		for (l1 = 0; l1 < (v); l1++) {
 			for (l2 = 0; l2 < (u - 2); l2++) {
-				this.forces.push(new SpringForce((l1 * u) + l2,(l1 * u) + l2 + 2,1000,0.5));
+				p0 = (l1*u)+l2;
+				this.forces.push(new SpringForce(p0,p0+2,1000,0.5));
 				
 			}
-			this.forces.push((l1 * u) + (u - 3),(l1 * u) + (u - 1),1000,0.5);
+			
+			p0 = (l1 * u) + (u - 3);
+			this.forces.push(new SpringForce(p0,p0+2,1000,0.5));
 		}
 		for (l1 = 0; l1 < (u); l1++) {
 			for (l2 = 0; l2 < (v - 2); l2++) {
-				this.forces.push((l2 * u) + l1,((l2 + 2) * u) + l1,1000,0.5);
+				p0 = (l2 * u) + l1;
+				p1 = ((l2 + 2) * u) + l1;
+				this.forces.push(new SpringForce(p0,p1,1000,0.5));
 			}
-			this.forces.push(((v - 3) * u) + l1,((v - 1) * u) + l1,1000,0.5);
+			p0 = ((v - 3) * u) + l1;
+			p1 = ((v - 1) * u) + l1;
+			this.forces.push(new SpringForce(p0,p1,1000,0.5));
 		}
+	
+	this.forces.push(new GravityForce(vec3.fromValues(0,-1,0),9.8,60));
 	
 	for(i = 0;i<this.forces.length;++i)
 	{
 		if(this.forces[i].type===F_SPRING)
 		{
-				var off_p0 = this.forces[i].pi0*PART_MAXVAR;
-				var off_p1 = this.forces[i].pi1*PART_MAXVAR;
+				var off_p0 = this.forces[i].pi0*PART_MAXVAR+PART_XPOS;
+				var off_p1 = this.forces[i].pi1*PART_MAXVAR+PART_XPOS;
 				var p0 = this.S0.subarray(off_p0,off_p0+3);
 				var p1 = this.S0.subarray(off_p1,off_p1+3);
 				this.forces[i].calcRest(p0,p1);
 		}
 	}
+	
+	
 }
 
 ClothSim.prototype.solver = function(){
@@ -277,4 +298,10 @@ ClothSim.prototype.solver = function(){
 		this.S1[offset+PART_YPOS] = this.S0[offset+PART_YPOS] + this.S0[offset+PART_YVEL]*this.dt;
 		this.S1[offset+PART_ZPOS] = this.S0[offset+PART_ZPOS] + this.S0[offset+PART_ZVEL]*this.dt;
 	}
+}
+
+ClothSim.prototype.swap = function(){
+	var temp = this.S0;
+	this.S0 = this.S1;
+	this.S1 = temp;
 }

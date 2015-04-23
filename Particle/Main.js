@@ -416,9 +416,10 @@ function renderAnimatedScene(gl,camera,moveArray,t)
 //	gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);
 //	gl.bufferData(gl.ARRAY_BUFFER,meshCont.meshes.curVert,gl.STATIC_DRAW);
 	drawGrid(gl,camPerspective,modelMatrix);
+	cloth.update(gl,meshCont);
 	drawPoint(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,cloth.faces,gl.STATIC_DRAW);
-    gl.drawElements(gl.TRIANGLES,cloth.faces.length,gl.UNSIGNED_SHORT,0);
+    gl.drawElements(gl.LINES,cloth.faces.length,gl.UNSIGNED_SHORT,0);
 //	gl.drawArrays(gl.POINTS,cloth.startOff/PART_MAXVAR,cloth.totalPoints);
 //		modelMatrix.setScale(0.2,0.2,0.2);
 //		modelMatrix.setIdentity();
