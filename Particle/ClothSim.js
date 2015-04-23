@@ -58,15 +58,16 @@ ClothSim = function(numX,numY,cont){
 //	this.cont = cont; //the container object
 	this.numX = numX;
 	this.numY = numY;
-	this.size = 20;
-	this.hsize = size/2;
+	this.totalPoints = (this.numX+1)*(this.numY+1);
+	this.size = 150;
+	this.hsize = this.size/2;
 	this.startOff = cont.nextOff; //the start offset in the vertex array in container;
-	cont.nextOff += (this.numX*this.numY)*PART_MAXVAR;
-	this.S0 = this.cont.meshes.oldVert.subarray(this.startOff,(this.numX*this.numY)*PART_MAXVAR);
-	this.S1 = this.cont.meshes.curVert.subarray(this.startOff,(this.numX*this.numY)*PART_MAXVAR);
-	this.faces = [];
+	cont.nextOff += (this.totalPoints)*PART_MAXVAR;
+	this.S0 = cont.meshes.curVert.subarray(this.startOff,this.startOff+(this.totalPoints)*PART_MAXVAR);
+	this.S1 = cont.meshes.nextVert.subarray(this.startOff,this.startOff+(this.totalPoints)*PART_MAXVAR);
+	this.faces = null;
 	this.dt = 1.0/60;
-	this.dotStat = cont.dotStat.subarray(this.startOff,(this.numX*this.numY)*PART_MAXVAR);
+	this.dotStat = cont.dotStat.subarray(this.startOff,this.startOff+(this.totalPoints)*PART_MAXVAR);
 }
 
 ClothSim.prototype = Object.create(SimBase.prototype);
@@ -97,18 +98,18 @@ ClothSim.prototype.applyGeneralForce = function(f){
 }
 
 ClothSim.prototype.applySpringForce = function(f){
-	var p0 = this.S0.subarray[f.ep0*PART_MAXVAR+PART_XPOS,f.ep0*PART_MAXVAR+PART_XPOS+3];
-	var p1 = this.S0.subarray[f.ep1*PART_MAXVAR+PART_XPOS,f.ep1*PART_MAXVAR+PART_XPOS+3];
-	var v0 = this.S0.subarray[f.ep0*PART_MAXVAR+PART_XVEL,f.ep0*PART_MAXVAR+PART_XVEL+3];
-	var v1 = this.S0.subarray[f.ep1*PART_MAXVAR+PART_XVEL,f.ep1*PART_MAXVAR+PART_XVEL+3];
+	var p0 = this.S0.subarray(f.ep0*PART_MAXVAR+PART_XPOS,f.ep0*PART_MAXVAR+PART_XPOS+3);
+	var p1 = this.S0.subarray(f.ep1*PART_MAXVAR+PART_XPOS,f.ep1*PART_MAXVAR+PART_XPOS+3);
+	var v0 = this.S0.subarray(f.ep0*PART_MAXVAR+PART_XVEL,f.ep0*PART_MAXVAR+PART_XVEL+3);
+	var v1 = this.S0.subarray(f.ep1*PART_MAXVAR+PART_XVEL,f.ep1*PART_MAXVAR+PART_XVEL+3);
 	
-	vec3 vp0 = vec3.fromValues(p0[0],p0[1],p0[2]);
-	vec3 vp1 = vec3.fromValues(p1[0],p1[1],p1[2]);
-	vec3 vv0 = vec3.fromValues(v0[0],v0[1],v0[2]);
-	vec3 vv1 = vec3.fromValues(v1[0],v1[1],v1[2]);
+	var vp0 = vec3.fromValues(p0[0],p0[1],p0[2]);
+	var vp1 = vec3.fromValues(p1[0],p1[1],p1[2]);
+	var vv0 = vec3.fromValues(v0[0],v0[1],v0[2]);
+	var vv1 = vec3.fromValues(v1[0],v1[1],v1[2]);
 	
-	vec3 deltaP = vec3.sub(vec3.create(),vp0,vp1);
-	vec3 deltaV = vec3.sub(vec3.create(),vv0,vv1);
+	var deltaP = vec3.sub(vec3.create(),vp0,vp1);
+	var deltaV = vec3.sub(vec3.create(),vv0,vv1);
 	
 	var curLen = vec3.distance(vp0,vp1);
 	var leftTerm  = -f.k * (curLen-f.rest_dist);
@@ -175,14 +176,24 @@ ClothSim.prototype.initSim = function()
 		{
 			var offset = idx*PART_MAXVAR;
 			this.S0[offset+PART_XPOS] = ((i/(u-1)) *2.0-1.)* this.hsize;
-			this.S0[offset+PART_YPOs] = this.size+1;
-			this.S0[offset+PART_ZPOS] = j/(v-1.0)*size;
+			this.S0[offset+PART_YPOS] = this.size+1;
+			this.S0[offset+PART_ZPOS] = j/(v-1.0)*this.size;
+			this.S0[offset+PART_DIAM] = 2.5;
+			
+			this.S0[offset+PART_R] = 1;
+			this.S0[offset+PART_G] = 1;
+			this.S0[offset+PART_B] = Math.random();
+			
+			++idx;
 		}
 	}
 	
-	for(var i = 0; i<numY; i++)
+//	console.log(idx);
+	
+	faces = [];
+	for(var i = 0; i<this.numY; i++)
 	{
-		for(var j = 0;j<numX; j++)
+		for(var j = 0;j<this.numX; j++)
 		{
 			var i0 = i*(this.numX+1)+j;
 			var i1 = i0+1;
@@ -191,17 +202,18 @@ ClothSim.prototype.initSim = function()
 			
 			if((j+1)%2)
 			{
-				this.faces.push(i0,i2,i1);
-				this.faces.push(i1,i2,i3);
+				faces.push(i0,i2,i1);
+				faces.push(i1,i2,i3);
 			}
 			else
 			{
-				this.faces.push(i0,i2,i3);
-				this.faces.push(i0,i3,i1);
+				faces.push(i0,i2,i3);
+				faces.push(i0,i3,i1);
 			}
 		}
 	}
 	
+	this.faces = new Uint16Array(faces);
 			//setup springs
 		// Horizontal
 		for (var l1 = 0; l1 < v; l1++)	// v

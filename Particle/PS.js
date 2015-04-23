@@ -52,9 +52,10 @@ Container = function(maxNum){
 	this.maxNum = maxNum;
 	this.meshes = {};
 	this.meshes.curVert = new Float32Array(maxNum*PART_MAXVAR);
-	this.meshes.oldVert = new Float32Array(maxNum*PART_MAXVAR);
+	this.meshes.nextVert = new Float32Array(maxNum*PART_MAXVAR);
 	this.dotStat = new Float32Array(maxNum*DOT_PART_TOTAL);
 	this.nextOff = 0;
+	this.elemSize = this.meshes.curVert.BYTES_PER_ELEMENT;
 }
 Container.prototype.constructor = Container;
 

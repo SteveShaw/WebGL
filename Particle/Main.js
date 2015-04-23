@@ -123,10 +123,10 @@ function main() {
     }
 
 
-    gl.depthFunc(gl.LEQUAL);
-//    gl.enable(gl.DEPTH_TEST);
-	gl.enable(gl.BLEND);
-	gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+//    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.DEPTH_TEST);
+//	gl.enable(gl.BLEND);
+//	gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 //	gl.blendEquation(gl.FUNC_ADD);
 
     //get vertex shader program's variables
@@ -170,7 +170,7 @@ function main() {
     }
     //gl.clear(gl.DEPTH_BUFFER_BIT);
 
-    gl.clearColor(0.0,0.0,0.0,1);
+    gl.clearColor(0.2,0.2,0.2,1);
 //	gl.enable(gl.ALPHA_TEST);
 	
     // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -312,7 +312,8 @@ function initGLContext(gl)
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 //    gl.bufferData(gl.ARRAY_BUFFER, allPts, gl.STATIC_DRAW);
-    gl.bufferData(gl.ARRAY_BUFFER, sims.S0, gl.DYNAMIC_DRAW);
+//    gl.bufferData(gl.ARRAY_BUFFER, sims.S0, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, meshCont.meshes.curVert.subarray(0,meshCont.nextOff), gl.STATIC_DRAW);
     //Get the storage location of a_Position, assign and enable buffer
     a_Position = gl.getAttribLocation(gl.program, 'a_Position');
     if(a_Position < 0) {
@@ -320,7 +321,7 @@ function initGLContext(gl)
         return -1;
     }
 //    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, PART_MAXVAR*sims.elemSize, PART_XPOS*sims.elemSize);
+    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, PART_MAXVAR*meshCont.elemSize, PART_XPOS*meshCont.elemSize);
     gl.enableVertexAttribArray(a_Position);  // Enable the assignment of the buffer object
 	
     a_Color = gl.getAttribLocation(gl.program, 'a_Color');
@@ -329,7 +330,7 @@ function initGLContext(gl)
         return -1;
     }
 //    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, PART_MAXVAR*sims.elemSize, PART_R*sims.elemSize);
+    gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, PART_MAXVAR*meshCont.elemSize, PART_R*meshCont.elemSize);
     gl.enableVertexAttribArray(a_Color);  // Enable the assignment of the buffer object
 	
 
@@ -339,7 +340,7 @@ function initGLContext(gl)
         return -1;
     }
 //    gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribPointer(a_PointSize, 1, gl.FLOAT, false, PART_MAXVAR*sims.elemSize, PART_DIAM*sims.elemSize);
+    gl.vertexAttribPointer(a_PointSize, 1, gl.FLOAT, false, PART_MAXVAR*meshCont.elemSize, PART_DIAM*meshCont.elemSize);
     gl.enableVertexAttribArray(a_PointSize);  // Enable the assignment of the buffer object
 
 
@@ -393,7 +394,7 @@ function drawObject(gl, projectionMatrix, viewMatrix, modelViewMatrix, faceIndex
     gl.drawElements(gl.TRIANGLES,faceIndexArray.length,gl.UNSIGNED_SHORT,0);
 }
 
-function drawPoint(gl, projectionMatrix, viewMatrix, modelViewMatrix, faceIndexArray)
+function drawPoint(gl, projectionMatrix, viewMatrix, modelViewMatrix)
 {
 	
     mvpMatrix.set(projectionMatrix).multiply(viewMatrix).multiply(modelViewMatrix);
@@ -411,22 +412,29 @@ function renderAnimatedScene(gl,camera,moveArray,t)
     //gl.bufferData(gl.ARRAY_BUFFER, allPts, gl.STATIC_DRAW);
 	//gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
     //gl.enableVertexAttribArray(a_Position);
-		drawGrid(gl,camPerspective,modelMatrix);
+//	gl.bufferSubData(gl.ARRAY_BUFFER,0,meshCont.meshes.curVert.subarray(0,meshCont.nextOff));
+//	gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);
+//	gl.bufferData(gl.ARRAY_BUFFER,meshCont.meshes.curVert,gl.STATIC_DRAW);
+	drawGrid(gl,camPerspective,modelMatrix);
+	drawPoint(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,cloth.faces,gl.STATIC_DRAW);
+    gl.drawElements(gl.TRIANGLES,cloth.faces.length,gl.UNSIGNED_SHORT,0);
+//	gl.drawArrays(gl.POINTS,cloth.startOff/PART_MAXVAR,cloth.totalPoints);
 //		modelMatrix.setScale(0.2,0.2,0.2);
-		modelMatrix.setIdentity();
+//		modelMatrix.setIdentity();
    //gl.uniform3f(u_AmbientColor, 0,1,0);
 //	gl.uniform1f(u_PointSize,10.0);
 	
 //	sps.update(gl,t);
-		sims.update(gl,t);
-    drawPoint(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix,sims.faces);
-	gl.uniform1i(u_UseTexture,1);
-	gl.bindTexture(gl.TEXTURE_2D,texture)
-			gl.activeTexture(gl.TEXTURE0);
-		gl.uniform1i(u_Sampler,0);
+//		sims.update(gl,t);
+//    drawPoint(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix,sims.faces);
+//	gl.uniform1i(u_UseTexture,1);
+//	gl.bindTexture(gl.TEXTURE_2D,texture)
+//			gl.activeTexture(gl.TEXTURE0);
+//		gl.uniform1i(u_Sampler,0);
 //    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,sims.faces,gl.STATIC_DRAW);
 //    gl.drawElements(gl.POINTS,sims.faces.length,gl.UNSIGNED_SHORT,0);
-	gl.drawArrays(gl.POINTS,0,sims.num);
+//	gl.drawArrays(gl.POINTS,0,meshCont.nextOff);
 	/*draw particle point*/
 //    drawObject(gl,camera.projectionMatrix,camera.viewMatrix,modelMatrix,teapotIndexArray,teapotAmbientColor);
 //		gl.uniform1i(u_UseTexture,1);
@@ -536,21 +544,42 @@ function genGrid(size, step) {
 
 function groupAllVertices()
 {
+	meshCont = new Container(5000); //all vertices are stored in this object
 	genGrid(300,40);
 	
-	sims = new SmokePS(5000,meshGrid.vertices.length/3);
-	sims.initSystem();
-	sims.setEnv(meshGrid.vertices,meshGrid.colors);
+	gridStat = new meshObject(meshGrid.vertices.length/3,meshCont);
+	gridStat.setData(meshGrid.vertices,meshGrid.colors);
+//	console.log(gridStat.num);
+//	console.log(meshCont.nextOff);
+//	console.log(gridStat.vertices);
+	delete meshGrid.vertices;
+	delete meshGrid.colors;
 	
-//	sims = new SimplePS(2,meshGrid.vertices.length/3);
+	
+	//create cloth system
+	cloth = new ClothSim(10,10,meshCont);
+//	console.log(meshCont.nextOff);
+	cloth.initSim();
+	for(var i=0;i<cloth.faces.length;++i)
+	{
+		cloth.faces[i] += meshGrid.faces.length;
+	}
+//	setArrays(cloth.faces,meshGrid.faces.length,cloth.faces.length);
+//	delete meshGrid.faces;
+	
+//	sims = new SmokePS(5000,meshGrid.vertices.length/3);
 //	sims.initSystem();
 //	sims.setEnv(meshGrid.vertices,meshGrid.colors);
-//	//modify grid face index
-	for(var i = 0;i<meshGrid.faces.length;++i)
-	{
-		meshGrid.faces[i] = i+sims.faces.length;
-	}
-	
+//	
+////	sims = new SimplePS(2,meshGrid.vertices.length/3);
+////	sims.initSystem();
+////	sims.setEnv(meshGrid.vertices,meshGrid.colors);
+////	//modify grid face index
+//	for(var i = 0;i<meshGrid.faces.length;++i)
+//	{
+//		meshGrid.faces[i] = i+sims.faces.length;
+//	}
+//	
 	
 //	console.log(sps.curStat);
 	
