@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Project A: Particle System</title>
+<style type="text/css">
+			body {
+				color: #000;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:left;
+
+				background-color: #fff;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				position: fixed;
+				top: 0px; left: 10px;
+				padding: 5px;
+			}
+			
+<!-- 			#datgui {
+				    position: absolute;
+					top: 0px;
+					right: 15px;
+			} -->
+
+			a {
+				color: #0af;
+			}
+<!-- 	#info {
+				position: absolute;
+				top: 2px; width: 100%;
+				padding: 5px;
+				z-index: 100;
+			} -->
+</style>
+</head>
+
+   <body onload="main()"> 
+<!--  <body>-->
+
+	<div id = "container">
+<!-- 	<canvas id="webgl" width="800" height="600" style="position:absolute;z-index:0">
+		Please use a browser that supports "canvas"
+	</canvas> -->
+	</div>
+		<canvas id="image-texture"></canvas>
+	
+  	<div id = "info">
+		<canvas id="hud" width="600" height="100" style="position:absolute;z-index:1">
+	</div>
+	
+
+
+
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/cuon-matrix-quat.js"></script>
+	<script src="dat.gui.min.js"></script>
+	<script src="EventDispatcher.js"></script>
+	<script src="CameraControls.js"></script>
+	<script src="camera.js"></script>
+	<script src="freecamera.js"></script>
+	<script src="SceneInfo.js"></script>
+	<script src="ExtraObjectMeshes.js"></script>
+	<script src="CalcNormals.js"></script>
+	<script src="gl-matrix.js"></script>
+<!--	<script src="Particle.js"></script>-->
+	<script src="util.js"></script>
+				<script src="Constraints.js"></script>
+	<script src="Force.js"></script>
+	<script src="PS.js"></script>
+	<script src="Integrator.js"></script>			
+	<script src="MeshObject.js"></script>
+	<script src="ClothSim.js"></script>
+			<script src="Tornado.js"></script>
+	<script src="Storm.js"></script>
+			<script src="Flock.js"></script>
+
+	<script src="Smoke.js"></script>
+	<script src="Main.js"></script>
+			
+<!--	<script>main()</script><body onload="main()"-->
+	</body>
+	</html>
