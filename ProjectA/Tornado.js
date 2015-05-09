@@ -229,13 +229,6 @@ Tornado.prototype.dotFinder = function () {
 Tornado.prototype.solver = function () {
 	this.solvers['exp'].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
 
-	var i, offset;
-	for (i = 0; i < this.totalPoints; ++i) {
-
-		offset = i * PART_MAXVAR;
-
-
-	}
 	//	var i, offset;
 	//	var curPos,oldPos,r;
 	//	

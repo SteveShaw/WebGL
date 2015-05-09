@@ -106,6 +106,63 @@ var gMoveOffset = [45.0, 45.0, 45.0, 45.0, 45.0];
 var gLookAtPos = [0, 0, 0];
 var gSims = {}
 
+var FlockPara = function()
+{
+    this.Kc = 60; //randomSpread(200,100);
+    this.Ks = 80; //randomSpread(200,100);
+    this.Ka = 60; //randomSpread(200,100);
+    this.Kp = 200;
+}
+
+var flockPara = new FlockPara();
+
+function createGUI()
+{
+    var gui = new dat.GUI({autoPlace:true});
+    var flockCtrl = gui.addFolder('Flock Control');
+    flockCtrl.add(flockPara,'Kc',50,100).onChange(
+                function(value)
+                {
+                    flockPara.Kc = value;
+                }
+
+                );
+
+    flockCtrl.add(flockPara,'Ks',50,100).onChange(
+                function(value)
+                {
+                    flockPara.Ks = value;
+                }
+
+                );
+
+    flockCtrl.add(flockPara,'Ka',50,100).onChange(
+                function(value)
+                {
+                    flockPara.Ka = value;
+                }
+
+                );
+
+    flockCtrl.add(flockPara,'Kp',200,300).onChange(
+                function(value)
+                {
+                    flockPara.Kc = value;
+                }
+
+                );
+    gui.width = 220;
+    gui.open();
+}
+
+function setSimPara()
+{
+    //flock
+    gSims['flock'].config.Kc = flockPara.Kc;
+    gSims['flock'].config.ks = flockPara.Ks;
+    gSims['flock'].config.Ka = flockPara.Ka;
+    gSims['flock'].config.Kp = flockPara.Kp;
+}
 
 
 function main() {
@@ -175,6 +232,8 @@ function main() {
     groupAllVertices();
 
     initGLContext(gl);
+
+    createGUI();
     //	initTextures(gl);
     createTexture(gl);
 
@@ -205,6 +264,8 @@ function main() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         var t = animate(gAngle); // Update the rotation angle
         gl.viewport(0, 0, canvas.width, canvas.height);
+        //set sim system parameters
+        setSimPara();
         renderAnimatedScene(gl, camPerspective, gAngle, t);
         camPerspective.updateMatrix();
         camCtrl.update();
@@ -233,49 +294,6 @@ function animate(angle) {
     //p.integrator(elapsed*0.01);
     g_last = now;
     return elapsed;
-
-    // Update the current rotation angle (adjusted by the elapsed time)
-    //  limit the angle to move smoothly between +20 and -85 degrees:
-    // if(angle[1] >   30.0 && ANGLE_STEP > 0) ANGLE_STEP = -ANGLE_STEP;
-    // if(angle[1] <  -30.0 && ANGLE_STEP < 0) ANGLE_STEP = -ANGLE_STEP;
-
-    // if(angle[2] > 60 && offset > 0)
-    // {
-    // offset = -offset;
-    // }
-    // if(angle[2] < -60 && offset<0)
-    // {
-    // offset = -offset;
-    // }
-
-    angle[0] += (gMoveOffset[0] * elapsed) / 1000.0;
-    angle[1] += (gMoveOffset[1] * elapsed) / 2000.0;
-    angle[2] += (gMoveOffset[2] * elapsed) / 3000.0;
-    angle[3] += (gMoveOffset[3] * elapsed) / 4000.0;
-    if (angle[1] > 30.0 && gMoveOffset[1] > 0) gMoveOffset[1] = -gMoveOffset[1]
-    if (angle[1] < -30.0 && gMoveOffset[1] < 0) gMoveOffset[1] = -gMoveOffset[1]
-    if (angle[2] > 45.0 && gMoveOffset[2] > 0) gMoveOffset[2] = -gMoveOffset[2]
-    if (angle[2] < -45.0 && gMoveOffset[2] < 0) gMoveOffset[2] = -gMoveOffset[2]
-    if (angle[3] > 40.0 && gMoveOffset[3] > 0) gMoveOffset[3] = -gMoveOffset[3]
-    if (angle[3] < -60.0 && gMoveOffset[3] < 0) gMoveOffset[3] = -gMoveOffset[3]
-
-
-    // var yAngle = angle[1];// + (ANGLE_STEP*elapsed)/1000.0;
-
-    // var joint3Angle = angle[2];// + (offset*elapsed)/1000.0;
-
-    // if(angle[3] > 0 && horOffset > 0)
-    // {
-    // horOffset = -horOffset;
-    // }
-    // if(angle[3] < -30 && horOffset < 0)
-    // {
-    // horOffset = -horOffset;
-    // }
-
-    // var horMove = angle[3] + (horOffset*elapsed)/1000.0;
-
-    return [angle[0] %= 360, angle[1] %= 360, angle[2] %= 360, angle[3] %= 360, angle[4]];
 }
 
 function spinUp() {
@@ -378,7 +396,7 @@ var projMatrix = new Matrix4(); // Projection matrix
 var mvpMatrix = new Matrix4(); // Model view projection matrix
 var quatMatrix = new Matrix4();
 var normalMatrix = new Matrix4();
-var quat = new Quaternion(0, 0, 0, 1);
+//var quat = new Quaternion(0, 0, 0, 1);
 var qx = new Quaternion(0, 0, 0, 1);
 var qy = new Quaternion(0, 0, 0, 1);
 
@@ -436,14 +454,23 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     gl.enable(gl.DEPTH_TEST);
     drawGrid(gl, camPerspective, modelMatrix);
     //	cloth.update(gl);
-    drawPoint(gl, camera.projectionMatrix, camera.viewMatrix, modelMatrix);
+    pushMatrix(modelMatrix);
+    gSims['flock'].renderFlock(gl,modelMatrix,camera.projectionMatrix,camera.viewMatrix,quatMatrix,mvpMatrix,u_MvpMatrix);
+    modelMatrix = popMatrix();
+    drawPoint(gl, camera.projectionMatrix, camera.viewMatrix, modelMatrix,u_MvpMatrix);
     gl.bufferData(gl.ARRAY_BUFFER, meshCont.vertices.subarray(0, meshCont.nextOff), gl.DYNAMIC_DRAW);
 
+//    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.faces, gl.DYNAMIC_DRAW);
+//    gl.drawElements(gl.TRIANGLES, sph.faces.length, gl.UNSIGNED_SHORT, 0);
+
+    if (meshSphere.isUpdate) {
+        vec3.copy(sph.offset, [0, 0, -Math.cos(count/50)*0.5]);
+        count++;
+        vec3.add(sph.center, sph.center, sph.offset); meshSphere.update(sph.offset);
+    }
     //	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,meshCube.faces,gl.DYNAMIC_DRAW);
     //	gl.drawElements(gl.LINES,meshCube.faces.length,gl.UNSIGNED_SHORT,0);
     //	draw sphere
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.faces, gl.DYNAMIC_DRAW);
-    gl.drawElements(gl.TRIANGLES, sph.faces.length, gl.UNSIGNED_SHORT, 0);
     //	gl.bufferData(gl.ARRAY_BUFFER,);
     //	gl.bufferSubData(gl.ARRAY_BUFFER,cloth.startOff,meshCont.vertices.subarray(cloth.startOff,meshCont.nextOff));
     //    gl.bufferData(gl.ARRAY_BUFFER, meshCont.vertices.subarray(0,meshCont.nextOff), gl.DYNAMIC_DRAW);
@@ -469,11 +496,6 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     //    }
 
     //update sphere
-    if (meshSphere.isUpdate) {
-        vec3.copy(sph.offset, [0, 0, -Math.cos(count/50)*0.5]);
-        count++;
-        vec3.add(sph.center, sph.center, sph.offset); meshSphere.update(sph.offset);
-    }
 
 
     //	for (var i = 0; i < gSimArr.length; ++i) {
@@ -504,21 +526,29 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     //	}
 
     //cloth
-    gl.uniform1i(u_UseTexture, 0);
+    /********gl.uniform1i(u_UseTexture, 0);
     //	gl.enable(gl.DEPTH_TEST);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['cloth'].faces, gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, gSims['cloth'].faces.length, gl.UNSIGNED_SHORT, 0);
-    gSims['cloth'].setContact(sph.center, sph.radius);
+    gSims['cloth'].setContact(sph.center, sph.radius);*******************/
 
-//    gl.uniform1i(u_UseTexture, 1);
-//    gl.bindTexture(gl.TEXTURE_2D, texture)
-//    gl.activeTexture(gl.TEXTURE0);
-//    gl.uniform1i(u_Sampler, 0); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['flock'].faces, gl.DYNAMIC_DRAW);
-    gl.drawElements(gl.TRIANGLES, gSims['flock'].faces.length, gl.UNSIGNED_SHORT, 0);
-
-    //fireworks
     gl.uniform1i(u_UseTexture, 1);
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(u_Sampler, 0); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
+//    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['flock'].faces, gl.DYNAMIC_DRAW);
+
+//    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 6);
+//    gl.drawElements(gl.TRIANGLES, gSims['flock'].faces.length, gl.UNSIGNED_SHORT, 0);
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['fire'].faces, gl.DYNAMIC_DRAW);
+    pushMatrix(modelMatrix);
+    gSims['fire'].renderParticle(gl,modelMatrix,camera.projectionMatrix,camera.viewMatrix,quatMatrix,mvpMatrix,u_MvpMatrix);
+    modelMatrix = popMatrix();
+//    gl.drawElements(gl.POINTS, gSims['fire'].emitters[0].maxPoints, gl.UNSIGNED_SHORT, 2 * gSims['fire'].emitters[0].start);
+    //fireworks
+/*****    gl.uniform1i(u_UseTexture, 1);
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(u_Sampler, 0); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
@@ -534,15 +564,17 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
 
 
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, tornado.faces, gl.DYNAMIC_DRAW);
-    gl.drawElements(gl.POINTS, tornado.faces.length, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.POINTS, tornado.faces.length, gl.UNSIGNED_SHORT, 0);******/
 
 
-    gSims['cloth'].update(gl, t);
+//    gSims['cloth'].update(gl, t);
     gSims['flock'].update(gl, t);
-    gSims['fireworks'].update(gl, t);
-    gSims['smoke'].update(gl, t);
+    gSims['fire'].update(gl, t);
 
-    tornado.update(gl, t);
+//    gSims['fireworks'].update(gl, t);
+//    gSims['smoke'].update(gl, t);
+
+//    tornado.update(gl, t);
     //	for(i = 0;i<gSimArr.length;++i)
     //	{
     ////		if(gSimArr[i].name!=='fireworks')
@@ -663,7 +695,7 @@ function groupAllVertices() {
     //	meshCube.setData(cube.vertices,cube.faces);
 
 
-    var flock = new Flocking(52, meshCont);
+    var flock = new Flocking(60, meshCont);
     flock.initSim();
     for (i = 0; i < flock.faces.length; ++i) {
         flock.faces[i] += offset; //meshGrid.faces.length;
@@ -691,7 +723,7 @@ function groupAllVertices() {
 
     offset += storm.faces.length;
 
-    var smoke = new Smoke(300, meshCont);
+    var smoke = new FireSmoke(1000, meshCont);
     smoke.initSim();
     for (i = 0; i < smoke.faces.length; ++i) {
         //		storm.faces[i] += cloth.faces.length;
@@ -700,7 +732,7 @@ function groupAllVertices() {
 
     offset += smoke.faces.length;
     gSims[smoke.name] = smoke;
-    smoke.setSolver('exp', new IntegratorExplicitEuler(smoke.dotFinder, smoke));
+//    smoke.setSolver('exp', new IntegratorExplicitEuler(smoke.dotFinder, smoke));
 
     tornado = new Tornado(200, meshCont);
     tornado.initSim();

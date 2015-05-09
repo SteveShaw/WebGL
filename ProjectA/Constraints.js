@@ -7,6 +7,8 @@ WallConstraint = function (N, L, M, center) {
 	this.sqL = vec3.squaredLength(L);
 	this.sqM = vec3.squaredLength(M);
 
+//    console.log(this.sqL);
+//    console.log(this.sqM);
 
 	this.L = vec3.clone(L);
 	vec3.normalize(this.L, this.L);
@@ -26,17 +28,18 @@ WallConstraint = function (N, L, M, center) {
 	this.transform[9] = this.N[1];
 	this.transform[10] = this.N[2];
 
-	//transpose since mat4 is col based
-	mat4.transpose(this.transform, this.transform);
+    mat4.transpose(this.transform, this.transform);
+    //transpose since mat4 is col based
 
 	var m = mat4.create();
 	mat4.translate(m, m, [-center[0], -center[1], -center[2]]);
-	this.center = vec3.clone(center);
+    this.center = vec3.clone(center);
 	mat4.mul(this.transform, this.transform, m);
+//    mat4.transpose(this.transform,this.transform);
 
 	this.trans_vel = vec3.create();
 
-	console.log(mat4.str(this.transform));
+//	console.log(mat4.str(this.transform));
 
 }
 

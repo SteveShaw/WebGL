@@ -15,6 +15,7 @@ const PART_MASS     =13;  // mass
 const PART_DIAM 		=14;	// on-screen diameter (in pixels)
 const PART_RENDMODE =15;	// on-screen appearance (square, round, or soft-round)
 const PART_MOVEABLE =16;
+const PART_DEAD = 17;
 const PART_AGE = 17;
 const PART_LIFESPAN = 18;
 const PART_ANG = 18;
