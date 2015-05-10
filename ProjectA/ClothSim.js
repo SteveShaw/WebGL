@@ -5,6 +5,8 @@ SimBase = function () {
 	this.curSel = 0;
 	this.timeStep = 1.0 / 100;
 	this.time = 0;
+
+    this.solverKey = -1;
 }
 
 SimBase.prototype.constructor = SimBase;
@@ -14,8 +16,8 @@ SimBase.prototype.addForce = function (f) {
 SimBase.prototype.addConstraints = function (c) {
 	this.constraints.push(c);
 }
-SimBase.prototype.setSolver = function (name, solver) {
-	this.solvers[name] = solver;
+SimBase.prototype.setSolver = function (key, solver) {
+    this.solvers[key] = solver;
 }
 
 SimBase.prototype.dotFinder = function () {}
@@ -86,13 +88,69 @@ ClothSim = function (numX, numY, cont) {
 ClothSim.prototype = Object.create(SimBase.prototype);
 ClothSim.prototype.constructor = ClothSim;
 
+ClothSim.prototype.initCloth = function()
+{
+    var x,y;
+
+    var pos,oldPos,clr,oldClr;
+    var vel,oldVel;
+    var width = this.size;
+    var height = this.size;
+
+    var mass = 0.5;
+    var diam = 5;
+    var zoffset = 20;
+    var xoffset = 20;
+    for (x = 0; x < this.num_particles_width; x++) {
+        for (y = 0; y < this.num_particles_height; y++) {
+            index = y * this.num_particles_height + x;
+            pos = this.S_cur.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
+            vec3.copy(pos, [width * (x / this.num_particles_width) + xoffset, -height * (y / this.num_particles_height) + height, zoffset]);
+            oldPos = this.S_old.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
+            vec3.copy(oldPos, pos);
+
+            //set velocity
+            vel = this.S_cur.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
+            vec3.copy(vel, [0, 0, 0]);
+            oldVel = this.S_old.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
+            vec3.copy(oldVel, vel);
+
+
+            //set color
+            clr = this.S_cur.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
+            vec4.copy(clr, [1, 1, Math.random(), 1]);
+            oldClr = this.S_old.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
+            vec4.copy(oldClr, clr);
+
+            //set mass
+            this.S_cur[index * PART_MAXVAR + PART_MASS] = mass;
+            this.S_old[index * PART_MAXVAR + PART_MASS] = mass;
+
+            //set diameter
+            this.S_cur[index * PART_MAXVAR + PART_DIAM] = diam;
+            this.S_old[index * PART_MAXVAR + PART_DIAM] = diam;
+
+            this.S_cur[index * PART_MAXVAR + PART_MOVEABLE] = 1;
+        }
+    }
+
+    var u = this.num_particles_width;
+    var v = this.num_particles_height;
+
+    for (x = 0; x < 3; ++x) {
+        this.S_cur[x * PART_MAXVAR + PART_MOVEABLE] = 0;
+        this.S_cur[(u - 1 - x) * PART_MAXVAR + PART_MOVEABLE] = 0;
+    }
+
+}
+
 
 ClothSim.prototype.initSim = function () {
 	//	this.S_cur = this.statArray[0];
 	//	this.S_old = this.statArray[1];
 
 
-	//	this.useVerlert = true;
+        this.useVerlert = true;
 
 	//	if (!this.useVerlert) {
 	//		this.dt = 1.0 / 1000;
@@ -101,48 +159,43 @@ ClothSim.prototype.initSim = function () {
 	//		this.dt = 18.0 / 1000;
 	//		this.ddt = this.dt * this.dt;
 	//	}
-	var x, y, index, pos, vel, clr;
-	var oldPos, oldVel, oldClr;
-	var mass = 0.5;
-	var diam = 5;
-	var width = this.size;
-	var height = this.size;
-	var zoffset = 20;
-	var xoffset = 20;
+    var x,y;
 	//	var yoffset = 0;
 	//set particle position
-	for (x = 0; x < this.num_particles_width; x++) {
-		for (y = 0; y < this.num_particles_height; y++) {
-			index = y * this.num_particles_height + x;
-			pos = this.S_cur.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
-			vec3.copy(pos, [width * (x / this.num_particles_width) + xoffset, -height * (y / this.num_particles_height) + height, zoffset]);
-			oldPos = this.S_old.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
-			vec3.copy(oldPos, pos);
+    this.initCloth();
 
-			//set velocity
-			vel = this.S_cur.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
-			vec3.copy(vel, [0, 0, 0]);
-			oldVel = this.S_old.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
-			vec3.copy(oldVel, vel);
+//	for (x = 0; x < this.num_particles_width; x++) {
+//		for (y = 0; y < this.num_particles_height; y++) {
+//			index = y * this.num_particles_height + x;
+//			pos = this.S_cur.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
+//			vec3.copy(pos, [width * (x / this.num_particles_width) + xoffset, -height * (y / this.num_particles_height) + height, zoffset]);
+//			oldPos = this.S_old.subarray(index * PART_MAXVAR + PART_XPOS, index * PART_MAXVAR + PART_XPOS + 3);
+//			vec3.copy(oldPos, pos);
+
+//			//set velocity
+//			vel = this.S_cur.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
+//			vec3.copy(vel, [0, 0, 0]);
+//			oldVel = this.S_old.subarray(index * PART_MAXVAR + PART_XVEL, index * PART_MAXVAR + PART_XVEL + 3);
+//			vec3.copy(oldVel, vel);
 
 
-			//set color
-			clr = this.S_cur.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
-			vec4.copy(clr, [1, 1, Math.random(), 1]);
-			oldClr = this.S_old.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
-			vec4.copy(oldClr, clr);
+//			//set color
+//			clr = this.S_cur.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
+//			vec4.copy(clr, [1, 1, Math.random(), 1]);
+//			oldClr = this.S_old.subarray(index * PART_MAXVAR + PART_R, index * PART_MAXVAR + PART_R + 4);
+//			vec4.copy(oldClr, clr);
 
-			//set mass
-			this.S_cur[index * PART_MAXVAR + PART_MASS] = mass;
-			this.S_old[index * PART_MAXVAR + PART_MASS] = mass;
+//			//set mass
+//			this.S_cur[index * PART_MAXVAR + PART_MASS] = mass;
+//			this.S_old[index * PART_MAXVAR + PART_MASS] = mass;
 
-			//set diameter
-			this.S_cur[index * PART_MAXVAR + PART_DIAM] = diam;
-			this.S_old[index * PART_MAXVAR + PART_DIAM] = diam;
+//			//set diameter
+//			this.S_cur[index * PART_MAXVAR + PART_DIAM] = diam;
+//			this.S_old[index * PART_MAXVAR + PART_DIAM] = diam;
 
-			this.S_cur[index * PART_MAXVAR + PART_MOVEABLE] = 1;
-		}
-	}
+//			this.S_cur[index * PART_MAXVAR + PART_MOVEABLE] = 1;
+//		}
+//	}
 
 
 	// Connecting immediate neighbor particles with constraints (distance 1 and sqrt(2) in the grid)
@@ -467,20 +520,21 @@ ClothSim.prototype.dotFinder = function () {
 ClothSim.prototype.solver = function () {
 
 
-	var temp0 = this.tempStat.subarray(PART_TEMP_X0, PART_TEMP_X0 + 3);
-	var temp1 = this.tempStat.subarray(PART_TEMP_X1, PART_TEMP_X1 + 3);
+//	var temp0 = this.tempStat.subarray(PART_TEMP_X0, PART_TEMP_X0 + 3);
+//	var temp1 = this.tempStat.subarray(PART_TEMP_X1, PART_TEMP_X1 + 3);
 
-	var offset = 0;
-	var dotOff = 0;
-	var curPos, oldPos, acc;
-	var curVel, oldVel
-	var i = 0;
+//	var offset = 0;
+//	var dotOff = 0;
+//	var curPos, oldPos, acc;
+//	var curVel, oldVel
+//	var i = 0;
 
-	if (this.useVerlert) {
-		this.solvers['verlet'].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
-	} else {
-		this.solvers['midpoint'].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
-	}
+//	if (this.useVerlert) {
+//        this.solvers[3].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
+//	} else {
+//        this.solvers[2].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
+//	}
+        this.solvers[this.solverKey].solve(this.totalPoints, this.S_cur, this.S_old, this.dotStat, this.dt);
 }
 
 //ClothSim.prototype.solver = function(){

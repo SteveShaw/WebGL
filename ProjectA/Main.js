@@ -116,6 +116,12 @@ var FlockPara = function()
 
 var flockPara = new FlockPara();
 
+var ClothPara = function()
+{
+    this.solver= 3;
+}
+var clothPara = new ClothPara();
+
 function createGUI()
 {
     var gui = new dat.GUI({autoPlace:true});
@@ -151,6 +157,18 @@ function createGUI()
                 }
 
                 );
+
+    var clothCtrl = gui.addFolder('Cloth Control');
+    clothCtrl.add(clothPara,'solver',{'Explicit Euler':0, 'Implicit Euler':1, 'Midpoint':2, 'Verlet':3}).onChange(
+
+                function(value)
+                {
+                    gSims['cloth'].solverKey = value;
+                    gSims['cloth'].initCloth();
+                }
+
+                );
+    clothCtrl.open();
     gui.width = 220;
     gui.open();
 }
@@ -228,12 +246,13 @@ function main() {
     //    lightDirection.normalize(); // Normalize
     //    gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
+    //create GUI
+    createGUI();
     //create 3d object
     groupAllVertices();
 
     initGLContext(gl);
 
-    createGUI();
     //	initTextures(gl);
     createTexture(gl);
 
@@ -450,21 +469,29 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     //	gl.bufferSubData(gl.ARRAY_BUFFER,0,meshCont.meshes.curVert.subarray(0,meshCont.nextOff));
     //	gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);
     //	gl.bufferData(gl.ARRAY_BUFFER,meshCont.meshes.curVert,gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, meshCont.vertices.subarray(0, meshCont.nextOff), gl.DYNAMIC_DRAW);
 
     gl.enable(gl.DEPTH_TEST);
+    //render grid plane
     drawGrid(gl, camPerspective, modelMatrix);
+
     //	cloth.update(gl);
     pushMatrix(modelMatrix);
     gSims['flock'].renderFlock(gl,modelMatrix,camera.projectionMatrix,camera.viewMatrix,quatMatrix,mvpMatrix,u_MvpMatrix);
     modelMatrix = popMatrix();
-    drawPoint(gl, camera.projectionMatrix, camera.viewMatrix, modelMatrix,u_MvpMatrix);
-    gl.bufferData(gl.ARRAY_BUFFER, meshCont.vertices.subarray(0, meshCont.nextOff), gl.DYNAMIC_DRAW);
 
-//    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.faces, gl.DYNAMIC_DRAW);
-//    gl.drawElements(gl.TRIANGLES, sph.faces.length, gl.UNSIGNED_SHORT, 0);
+    drawPoint(gl, camera.projectionMatrix, camera.viewMatrix, modelMatrix,u_MvpMatrix);
+
+    //render tornado
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['tornado'].faces, gl.DYNAMIC_DRAW);
+    gl.drawElements(gl.POINTS, gSims['tornado'].faces.length, gl.UNSIGNED_SHORT, 0);
+
+    //render sphere
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.faces, gl.DYNAMIC_DRAW);
+    gl.drawElements(gl.TRIANGLES, sph.faces.length, gl.UNSIGNED_SHORT, 0);
 
     if (meshSphere.isUpdate) {
-        vec3.copy(sph.offset, [0, 0, -Math.cos(count/50)*0.5]);
+        vec3.copy(sph.offset, [0, 0, -Math.cos(count/50)*0.8]);
         count++;
         vec3.add(sph.center, sph.center, sph.offset); meshSphere.update(sph.offset);
     }
@@ -526,11 +553,11 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     //	}
 
     //cloth
-    /********gl.uniform1i(u_UseTexture, 0);
-    //	gl.enable(gl.DEPTH_TEST);
+    gl.uniform1i(u_UseTexture, 0);
+    gl.enable(gl.DEPTH_TEST);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['cloth'].faces, gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, gSims['cloth'].faces.length, gl.UNSIGNED_SHORT, 0);
-    gSims['cloth'].setContact(sph.center, sph.radius);*******************/
+    gSims['cloth'].setContact(sph.center, sph.radius);
 
     gl.uniform1i(u_UseTexture, 1);
     gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -546,7 +573,12 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     pushMatrix(modelMatrix);
     gSims['fire'].renderParticle(gl,modelMatrix,camera.projectionMatrix,camera.viewMatrix,quatMatrix,mvpMatrix,u_MvpMatrix);
     modelMatrix = popMatrix();
-//    gl.drawElements(gl.POINTS, gSims['fire'].emitters[0].maxPoints, gl.UNSIGNED_SHORT, 2 * gSims['fire'].emitters[0].start);
+
+    //draw smoke
+    drawPoint(gl, camera.projectionMatrix, camera.viewMatrix, modelMatrix,u_MvpMatrix);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['smoke'].faces, gl.DYNAMIC_DRAW);
+    gSims['smoke'].renderParticle(gl);
+
     //fireworks
 /*****    gl.uniform1i(u_UseTexture, 1);
     gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -567,12 +599,13 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     gl.drawElements(gl.POINTS, tornado.faces.length, gl.UNSIGNED_SHORT, 0);******/
 
 
-//    gSims['cloth'].update(gl, t);
+    gSims['cloth'].update(gl, t);
     gSims['flock'].update(gl, t);
     gSims['fire'].update(gl, t);
+    gSims['smoke'].update(gl, t);
+    gSims['tornado'].update(gl,t);
 
 //    gSims['fireworks'].update(gl, t);
-//    gSims['smoke'].update(gl, t);
 
 //    tornado.update(gl, t);
     //	for(i = 0;i<gSimArr.length;++i)
@@ -666,7 +699,7 @@ function genGrid(size, step) {
 function groupAllVertices() {
 
     var i;
-    meshCont = new Container(5000); //all vertices are stored in this object
+    meshCont = new Container(7000); //all vertices are stored in this object
     //	genGrid(300,40);
     genGrid(100, 5);
 
@@ -675,10 +708,6 @@ function groupAllVertices() {
     gridStat = new MeshObject(meshGrid.vertices.length / 3, meshCont);
     gridStat.setData(meshGrid.vertices, meshGrid.faces, meshGrid.colors);
 
-
-    //	console.log(gridStat.num);
-    //	console.log(meshCont.nextOff);
-    //	console.log(gridStat.vertices);
     delete meshGrid.vertices;
     delete meshGrid.colors;
 
@@ -693,6 +722,15 @@ function groupAllVertices() {
     //
     //	meshCube = new MeshObject(cube.vertices.length/3,meshCont);
     //	meshCube.setData(cube.vertices,cube.faces);
+    sph = new Sphere(20, 20, 10, [35, 25, 15]);
+    meshSphere = new MeshObject(sph.vertices.length / 3, meshCont);
+    meshSphere.setData(sph.vertices, sph.colors);
+    meshSphere.isUpdate = true;
+
+    for (i = 0; i < sph.faces.length; ++i) {
+        sph.faces[i] += offset;
+    }
+    offset += sph.faces.length;
 
 
     var flock = new Flocking(60, meshCont);
@@ -705,36 +743,40 @@ function groupAllVertices() {
 
     gSims[flock.name] = flock;
 
-    //	gSimArr.push(flock);
-
-
     //	//create storm system
-    var storm = new Storm(200, meshCont);
-    storm.initSim();
-    //
-    //	console.log(storm.faces.length);
-    for (i = 0; i < storm.faces.length; ++i) {
-        //		storm.faces[i] += cloth.faces.length;
-        storm.faces[i] += offset;
+//    var storm = new Storm(200, meshCont);
+//    storm.initSim();
+//    //
+//    //	console.log(storm.faces.length);
+//    for (i = 0; i < storm.faces.length; ++i) {
+//        //		storm.faces[i] += cloth.faces.length;
+//        storm.faces[i] += offset;
+//    }
+
+//    gSims[storm.name] = storm;
+//    //gSimArr.push(storm);
+
+//    offset += storm.faces.length;
+
+    var fire = new Fire(1500, meshCont);
+    fire.initSim();
+    for (i = 0; i < fire.faces.length; ++i) {
+        fire.faces[i] += offset;
     }
 
-    gSims[storm.name] = storm;
-    //gSimArr.push(storm);
-
-    offset += storm.faces.length;
-
-    var smoke = new FireSmoke(1000, meshCont);
-    smoke.initSim();
-    for (i = 0; i < smoke.faces.length; ++i) {
-        //		storm.faces[i] += cloth.faces.length;
-        smoke.faces[i] += offset;
-    }
-
-    offset += smoke.faces.length;
-    gSims[smoke.name] = smoke;
+    offset += fire.faces.length;
+    gSims[fire.name] = fire;
 //    smoke.setSolver('exp', new IntegratorExplicitEuler(smoke.dotFinder, smoke));
 
-    tornado = new Tornado(200, meshCont);
+    var smoke = new Smoke(2000,meshCont);
+    smoke.initSim();
+    for (i = 0; i < smoke.faces.length; ++i) {
+        smoke.faces[i] += offset;
+    }
+    offset += smoke.faces.length;
+    gSims[smoke.name] = smoke;
+
+    var tornado = new Tornado(200, meshCont);
     tornado.initSim();
 
     for (i = 0; i < tornado.faces.length; ++i) {
@@ -743,21 +785,10 @@ function groupAllVertices() {
 
     offset += tornado.faces.length;
     tornado.setSolver('exp', new IntegratorExplicitEuler(tornado.dotFinder, tornado));
-
-    //	sph = new Sphere(25,50,10,[0,25,15]);
-    sph = new Sphere(20, 20, 10, [35, 25, 15]);
-    meshSphere = new MeshObject(sph.vertices.length / 3, meshCont);
-    meshSphere.setData(sph.vertices, sph.colors);
-    meshSphere.isUpdate = true;
-
-    for (i = 0; i < sph.faces.length; ++i) {
-        sph.faces[i] += offset;
-    }
-    offset += sph.faces.length;
+    gSims[tornado.name] = tornado;
 
 
-    ////
-    ////	//create cloth system
+
     var cloth = new ClothSim(16, 16, meshCont);
     ////	console.log(meshCont.nextOff);
     cloth.initSim();
@@ -769,38 +800,16 @@ function groupAllVertices() {
     }
     //	gSimArr.push(cloth);
     offset += cloth.faces.length;
-
     gSims[cloth.name] = cloth;
 
     var mpEuler = new IntegratorMidPointEuler(cloth.dotFinder, cloth);
-    cloth.setSolver('midpoint', mpEuler);
+    cloth.setSolver(2, mpEuler);
     var expEuler = new IntegratorExplicitEuler(cloth.dotFinder, cloth);
-    cloth.setSolver('exp', expEuler);
+    cloth.setSolver(0, expEuler);
     var verlet = new IntegratorVerlet(cloth.dotFinder, cloth);
-    cloth.setSolver('verlet', verlet);
+    cloth.setSolver(3, verlet);
 
-
-
-
-    //	setArrays(cloth.faces,meshGrid.faces.length,cloth.faces.length);
-    //	delete meshGrid.faces;
-
-    //	sims = new SmokePS(5000,meshGrid.vertices.length/3);
-    //	sims.initSystem();
-    //	sims.setEnv(meshGrid.vertices,meshGrid.colors);
-    //
-    ////	sims = new SimplePS(2,meshGrid.vertices.length/3);
-    ////	sims.initSystem();
-    ////	sims.setEnv(meshGrid.vertices,meshGrid.colors);
-    ////	//modify grid face index
-    //	for(var i = 0;i<meshGrid.faces.length;++i)
-    //	{
-    //		meshGrid.faces[i] = i+sims.faces.length;
-    //	}
-    //
-
-    //	console.log(sps.curStat);
-
+    cloth.solverKey = clothPara.solver;
 
 }
 

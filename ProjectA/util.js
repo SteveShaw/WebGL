@@ -104,31 +104,31 @@ function calcTriangleNormal(p0, p1, p2) {
 }
 
 function createTexture(gl) {
-		var ctx = document.getElementById('image-texture').getContext('2d');
-		ctx.beginPath();
-		var edgecolor1 = "rgba(255,255,255,1)";
-		var edgecolor2 = "rgba(255,255,255,0)";
-		var gradblur = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-		gradblur.addColorStop(0, edgecolor1);
-		gradblur.addColorStop(1, edgecolor2);
-		ctx.fillStyle = gradblur;
-		ctx.arc(64, 64, 64, 0, Math.PI * 2, false);
-		ctx.fill();
-		var data = ctx.getImageData(0, 0, 128, 128).data;
+    var ctx = document.getElementById('image-texture').getContext('2d');
+    ctx.beginPath();
+    var edgecolor1 = "rgba(255,255,255,1)";
+    var edgecolor2 = "rgba(255,255,255,0)";
+    var gradblur = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradblur.addColorStop(0, edgecolor1);
+    gradblur.addColorStop(1, edgecolor2);
+    ctx.fillStyle = gradblur;
+    ctx.arc(64, 64, 64, 0, Math.PI * 2, false);
+    ctx.fill();
+    var data = ctx.getImageData(0, 0, 128, 128).data;
 
-		var tex = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, tex);
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
 
-		var pixels = new Uint8Array(128 * 128 * 4);
-		for (var i = 0; i < 128 * 128 * 4; i++) {
-			pixels[i] = data[i];
-		}
-		ctx.clearRect(0, 0, 128, 128);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 128, 128, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-		gl.generateMipmap(gl.TEXTURE_2D);
-		gl.bindTexture(gl.TEXTURE_2D, null);
-		texture = tex;
-	}
+    var pixels = new Uint8Array(128 * 128 * 4);
+    for (var i = 0; i < 128 * 128 * 4; i++) {
+        pixels[i] = data[i];
+    }
+    ctx.clearRect(0, 0, 128, 128);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 128, 128, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    texture = tex;
+}
 	//Sphere Zone
 SphereZone = function (center, outter, inner) {
 	this.center = vec3.clone(center) || vec3.create();
@@ -497,16 +497,18 @@ Sphere.prototype.constructor = Sphere;
 
 //If you want a upside down cone
 //The vector is [0,1,0]
-ConeZone = function (apex, axis, angle, height) {
+ConeZone = function (apex, axis, angle, height, truncatedHeight) {
 	this.apex = vec3.create();
-	if (apex != undefined)
+    if (apex !== undefined)
 		vec3.copy(this.apex, apex);
 	this.axis = vec3.create();
-	if (axis != undefined)
+    if (axis !== undefined)
 		vec3.copy(this.axis, axis);
 	this.angle = angle;
 
 	this.height = height;
+
+    this.truncatedHeight = truncatedHeight||0;
 
 	this.perps = new Array();
 
@@ -525,8 +527,11 @@ ConeZone = function (apex, axis, angle, height) {
 
 ConeZone.prototype.getValue = function () {
 
+    var maxDist = this.height;
+    var minDist = this.truncatedHeight;
+
 	var h = Math.random();
-	h = (1 - h * h) * this.height;
+    h = minDist + ( 1 - h * h ) * ( maxDist - minDist );
 	var r = Math.random();
 	r = (1 - r * r) * Math.tan(this.angle / 2) * h;
 	var a = Math.random() * 2 * Math.PI;
@@ -555,11 +560,13 @@ ConeZone.prototype.getValue = function () {
 ConeZone.prototype.contains = function (pos) {
 
 
-	var q = vec3.create();
+    var maxDist = this.height;
+    var minDist = this.truncatedHeight;
+    var q = vec3.create();
 	vec3.sub(q, pos, this.apex);
 	var d = vec3.dot(q, this.axis);
 
-	if (d < 0 || d > this.height) {
+    if (d < minDist || d > maxDist) {
 
 		return false;
 	}

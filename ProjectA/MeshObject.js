@@ -34,7 +34,7 @@ MeshObject.prototype.setData = function(vertArr,faceArr,colorArr){
 			this.vertices[offset+PART_R] = colorArr[step*i];
 			this.vertices[offset+PART_G] = colorArr[step*i+1];
 			this.vertices[offset+PART_B] = colorArr[step*i+2];
-            this.vertices[offset+PART_A] = 0.0;
+            this.vertices[offset+PART_A] = 1.0;
 		}
 	}
 	else{
@@ -45,7 +45,7 @@ MeshObject.prototype.setData = function(vertArr,faceArr,colorArr){
 			this.vertices[offset+PART_R] = 0.0;
 			this.vertices[offset+PART_G] = 1.0;
 			this.vertices[offset+PART_B] = 1.0;
-            this.vertices[offset+PART_A] = 0.0;
+            this.vertices[offset+PART_A] = 1.0;
 		}
 	}
 	
