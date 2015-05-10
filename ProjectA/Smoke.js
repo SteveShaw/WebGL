@@ -19,7 +19,7 @@ Smoke = function (num, cont) {
     this.tempStat = new Float32Array(PART_TEMP_TOTAL);
 
     this.name = 'smoke';
-    this.startColor = vec4.fromValues(0.2,0.2,0.2,0.15);
+    this.startColor = vec4.fromValues(0.3,0.3,0.3,0.15);
     this.endColor = vec4.fromValues(0,0,0,0);
 
     this.startAlpha = 0.15;
@@ -29,6 +29,7 @@ Smoke = function (num, cont) {
     this.endScale = 60;//this.startScale * 1.5;
 
     this.faces = new Uint16Array(num);
+    this.uvs = new Float32Array(num*2);
     this.emitters = new Array();
     this.space = new Array();
 
@@ -38,7 +39,7 @@ Smoke = function (num, cont) {
     this.invEmitRate = 1.0/this.emitRate;
     this.timeToNext = this.invEmitRate;
 
-    this.drift = vec3.fromValues(15,15,15);
+    this.drift = vec3.fromValues(55,55,55);
 }
 
 
@@ -56,6 +57,8 @@ Smoke.prototype.initSim = function ()
     for(i = 0; i<this.totalPoints;++i)
     {
         this.faces[i] = i;
+        this.uvs[2*i] = 0;
+        this.uvs[2*i+1] = 0;
     }
 
     this.space.push([0,this.totalPoints]);

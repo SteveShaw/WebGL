@@ -37,6 +37,7 @@ Fire = function(num,cont)
     this.endScale = this.startScale * 1.5;
 
     this.faces = new Uint16Array(num);
+    this.uvs = new Float32Array(num*2);
     //emitters
 //    this.numEmitters = 5;
     this.emitters = new Array();
@@ -116,6 +117,8 @@ Fire.prototype.initSim = function()
     for(i = 0; i<this.totalPoints;++i)
     {
         this.faces[i] = i;
+        this.uvs[2*i] = 0;
+        this.uvs[2*i+1] = 0;
     }
 
     this.space.push([0,this.totalPoints]);

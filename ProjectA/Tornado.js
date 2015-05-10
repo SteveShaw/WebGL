@@ -19,7 +19,8 @@ Tornado = function (num, cont) {
 
 	this.tempStat = new Float32Array(PART_TEMP_TOTAL);
 
-	this.faces = new Uint16Array(this.totalPoints);
+    this.faces = new Uint16Array(this.totalPoints);
+    this.uvs = new Float32Array(this.totalPoints*2);
 
 	this.attractor = new Float32Array(PART_MAXVAR * 2);
 
@@ -29,16 +30,15 @@ Tornado = function (num, cont) {
 	//	this.posGen = new DiskZone([-20, -10, 0], [0, 1, 0], 10);
 
 	//	this.posGen = new ConeZone([-40,0,50],[0,1,0],-20,40);
-	this.posGen = new DiskZone([-50, 0, 50], [0, 1, 0], 30, 15);
+    this.posGen = new DiskZone([-170, 0, 50], [0, 1, 0], 30, 15);
 	this.coneArea = new ConeZone([-40, 0, 50], [0, 1, 0], -30, 40);
 	this.velGen = new ConeZone([0, 0, 0], [1, 0, 0], -20, 5);
-	this.faces = new Uint16Array(this.totalPoints);
 
 	this.count = 0;
 
 	this.emitterPosition = [-40, 35, 50];
 	this.fielder = {};
-	this.fielder['pos'] = [-40, 40, 100]
+    this.fielder['pos'] = [-170, 40, 100]
 	this.fielder['mass'] = 10000;
 }
 
@@ -102,6 +102,9 @@ Tornado.prototype.initSim = function () {
 	var curStat, oldStat, dotStat;
 	for (i = 0; i < this.totalPoints; ++i) {
 		this.faces[i] = i;
+        this.uvs[i*2] = 0;
+        this.uvs[i*2+1] = 0;
+
 		offset = i * PART_MAXVAR;
 		dotOff = i * DOT_PART_TOTAL;
 

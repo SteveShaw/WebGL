@@ -349,11 +349,13 @@ function getVerletVelocity(curPos, oldPos, dt) {
 }
 
 Sphere = function (slices, stacks, radius, offset) {
-	this.offset = vec3.create();
+
+    this.offset = vec3.create();
 
 	if (offset != undefined) {
 		vec3.copy(this.offset, offset);
 	}
+
 
 	this.center = vec3.create();
 	vec3.copy(this.center, this.offset);
@@ -371,35 +373,41 @@ Sphere = function (slices, stacks, radius, offset) {
 
 	this.rawFaces = new Array();
 	this.rawVerts = new Array();
+    this.rawUVs = new Array();
 
-	var vertices = new Array();
-	//	var uvs = new Array();
+    var vertices = [];
+    var uvs = [];
 
 	for (y = 0; y <= stacks; y++) {
 
-		var verticesRow = [];
-		//		var uvsRow = [];
+        var verticesRow = [];
+        var uvsRow = [];
 
 		for (x = 0; x <= slices; x++) {
 
 			u = x / slices;
 			v = y / stacks;
 
-			this.rawVerts.push(-radius * Math.cos(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[0]);
-			this.rawVerts.push(radius * Math.cos(thetaStart + v * thetaLength) + offset[1]);
-			this.rawVerts.push(radius * Math.sin(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[2]);
+//            var vertex = vec3.create();
+//            vec3[0] = -radius * Math.cos(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[0];
+//            vec3[1] = radius * Math.cos(thetaStart + v * thetaLength) + offset[1];
+//            vec3[2] = radius * Math.sin(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[2];
+            this.rawVerts.push(-radius * Math.cos(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[0]);
+            this.rawVerts.push(radius * Math.cos(thetaStart + v * thetaLength) + offset[1]);
+            this.rawVerts.push(radius * Math.sin(phiStart + u * phiLength) * Math.sin(thetaStart + v * thetaLength) + offset[2]);
 
-			verticesRow.push(this.rawVerts.length / 3 - 1);
-			//			uvsRow.push(u, 1 - v);
+//            verticesRow.push(vertex);
+            verticesRow.push(this.rawVerts.length / 3 - 1);
+            uvsRow.push(vec2.fromValues(u, 1 - v));
 		}
 
-		vertices.push(verticesRow);
-		//		uvs.push(uvsRow);
+        vertices.push(verticesRow);
+        uvs.push(uvsRow);
 	}
 
 	var v1, v2, v3, v4;
-	//var n1,n2,n3,n4;
-	//	var uv1,uv2,uv3,uv4;
+    //var n1,n2,n3,n4;
+    var uv1,uv2,uv3,uv4;
 
 	for (y = 0; y < stacks; y++) {
 
@@ -420,32 +428,34 @@ Sphere = function (slices, stacks, radius, offset) {
 
 			//			console.log(v1+','+v2+','+v3+','+v4);
 
-			//			uv1 = uvs[y][x + 1].clone();
-			//			uv2 = uvs[y][x].clone();
-			//			uv3 = uvs[y + 1][x].clone();
-			//			uv4 = uvs[y + 1][x + 1].clone();
+            uv1 = vec2.clone(uvs[y][x + 1]);
+            uv2 = vec2.clone(uvs[y][x]);
+            uv3 = vec2.clone(uvs[y + 1][x])
+            uv4 = vec2.clone(uvs[y + 1][x + 1]);
 
 			if (Math.abs(this.rawVerts[v1 * 3 + 1]) === radius) {
 
-				//uv1.x = (uv1.x + uv2.x) / 2;
+                uv1[0] = (uv1[0] + uv2[0]) / 2;
 				//				this.faces.push(new THREE.Face3(v1, v3, v4, [n1, n3, n4]));
 				this.rawFaces.push(v1, v3, v4);
-				//this.faceVertexUvs[0].push([uv1, uv3, uv4]);
+                this.rawUVs.push(uv1,uv3,uv4);
 
 			} else if (Math.abs(this.rawVerts[v3 * 3 + 1]) === radius) {
 
-				//				uv3.x = (uv3.x + uv4.x) / 2;
+                uv3[0] = (uv3[0] + uv4[0]) / 2;
 				this.rawFaces.push(v1, v2, v3);
+                this.rawUVs.push(uv1,uv2,uv3);
 				//				this.faceVertexUvs[0].push([uv1, uv2, uv3]);
 
 			} else {
 
-				//				this.faces.push(new THREE.Face3(v1, v2, v4, [n1, n2, n4]));
 				this.rawFaces.push(v1, v2, v4);
+                this.rawUVs.push(uv1,uv2,uv4);
 				//				this.faceVertexUvs[0].push([uv1, uv2, uv4]);
 
 				//				this.faces.push(new THREE.Face3(v2, v3, v4, [n2.clone(), n3, n4.clone()]));
 				this.rawFaces.push(v2, v3, v4);
+                this.rawUVs.push(vec2.clone(uv2),uv3,vec2.clone(uv4));
 				//				this.faceVertexUvs[0].push([uv2.clone(), uv3, uv4.clone()]);
 
 			}
@@ -455,18 +465,20 @@ Sphere = function (slices, stacks, radius, offset) {
 	}
 
 	//rearrange faces
-	var offset = 0,
-		i, index;
+    var i, index;
 
 	var faceArr = new Array();
 	var verArr = new Array();
-	//	var normArr = new Array();
-	//	var uvArr = new Array();
+    //	var normArr = new Array();
+    var uvArr = new Array();
 	var colorArr = new Array();
 
-	for (i = 0; i < this.rawFaces.length; ++i) {
+    console.log(this.rawUVs.length);
+    console.log(this.rawFaces.length);
+
+    for (i = 0; i < this.rawFaces.length; ++i) {
 		index = this.rawFaces[i];
-		faceArr.push(offset);
+        faceArr.push(i);
 
 		verArr.push(this.rawVerts[index * 3]);
 		verArr.push(this.rawVerts[index * 3 + 1]);
@@ -480,15 +492,17 @@ Sphere = function (slices, stacks, radius, offset) {
 		colorArr.push(1.0);
 		colorArr.push(1.0);
 
-		//		uvArr.push(rawUV[index*2]);
+        uvArr.push(this.rawUVs[index][0]);
+        uvArr.push(this.rawUVs[index][1]);
+        //		uvArr.push(rawUV[index*2]);
 		//		uvArr.push(rawUV[index*2+1]);
 
 		++offset;
 	}
 
 	this.faces = new Uint16Array(faceArr);
-	this.vertices = new Float32Array(verArr);
-	//	this.uvs = new Float32Array(uvArr);
+    this.vertices = new Float32Array(verArr);
+    this.uvs = new Float32Array(uvArr);
 	this.colors = new Float32Array(colorArr);
 	//	this.normals = new Float32Array(normArr);
 }

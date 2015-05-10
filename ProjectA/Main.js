@@ -14,6 +14,8 @@ var VSHADER_SOURCE =
         'attribute float a_PointSize;\n' +
         'attribute vec4 a_Color;\n' +
         'uniform mat4 u_MvpMatrix;\n' +
+        'attribute vec2 a_TexCoord;\n' +
+        'varying vec2 v_TexCoord;\n'+
         //        'uniform mat4 u_NormalMatrix;\n'+ // Transformation matrix of normal
         //        'uniform vec3 u_LightColor;\n' +
         //        'uniform vec3 u_LightDirection;\n' +
@@ -34,6 +36,7 @@ var VSHADER_SOURCE =
         //        ' vec3 diffuse = u_LightColor * u_AmbientColor * (0.3+0.7*nDotL);\n' +
         //		' v_Color = vec4(u_AmbientColor, 1.0);\n' +
         ' v_Color = a_Color;\n' +
+        ' v_TexCoord = a_TexCoord;\n'+
         // Add the surface colors due to diffuse and ambient reflection
         //        ' if(u_UseLight) v_Color = vec4(diffuse, 1.0);\n' +
         //		' else v_Color = vec4(u_AmbientColor, 1.0);\n' +
@@ -48,6 +51,8 @@ var FSHADER_SOURCE =
         'varying vec4 v_Color;\n' +
         'uniform sampler2D u_Sampler;\n' +
         'uniform bool u_UseTexture;\n' +
+        'varying vec2 v_TexCoord;\n' +
+        'uniform bool u_UseUV;\n' +
         'void main() {\n' +
         'if(u_UseTexture)\n' +
         '{\n' +
@@ -59,15 +64,14 @@ var FSHADER_SOURCE =
         '  samplerColor = texture2D(u_Sampler,gl_PointCoord);\n' +
         'if(samplerColor.a==0.0){discard;}\n' +
         'else{\n' +
-        //								'const float LOG2 = 1.442695;\n'+
-        //						'fogFactor = exp2( - fogDensity * fogDensity * LOG2 );\n'+
-        //						'fogFactor = 1.0 - clamp( fogFactor, 0.0, 1.0 );\n'+
-        //		'vec3 color = mix(vec3(v_Color),fogColor,fogFactor);\n'+
-        //        '  gl_FragColor = vec4(color,v_Color.a)*samplerColor;\n' +
         '  gl_FragColor = v_Color*samplerColor;\n' +
         //		'gl_FragColor = vec4(color,v_Color.a);\n'+
         //'gl_FragColor = mix( gl_FragColor, vec4( fogColor, gl_FragColor.w ), fogFactor );\n'+
+            '}\n' +
         '}\n' +
+        'else if(u_UseUV)\n' +
+        '{\n' +
+            'gl_FragColor = v_Color*texture2D(u_Sampler,v_TexCoord);\n' +
         '}\n' +
         'else\n' +
         '{\n' +
@@ -105,6 +109,8 @@ var gAngle = [0.0, 0.0, 0.0, 0.0, 0.0];
 var gMoveOffset = [45.0, 45.0, 45.0, 45.0, 45.0];
 var gLookAtPos = [0, 0, 0];
 var gSims = {}
+var gTexCont = {};
+var meshUVs;
 
 var FlockPara = function()
 {
@@ -222,9 +228,9 @@ function main() {
     //    gl.depthFunc(gl.LEQUAL);
 
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+//    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     gl.blendEquation(gl.FUNC_ADD);
-
+        gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     //get vertex shader program's variables
     u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
     //    u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
@@ -234,6 +240,7 @@ function main() {
     //    u_DrawPoint = gl.getUniformLocation(gl.program, 'u_DrawPoint');
     u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
     u_UseTexture = gl.getUniformLocation(gl.program, 'u_UseTexture');
+    u_UseUV = gl.getUniformLocation(gl.program, 'u_UseUV');
     //	u_UseLight = gl.getUniformLocation(gl.program,'u_UseLight');
     //	u_UseVertexColor = gl.getUniformLocation(gl.program,'u_UseVertexColor');
     //	u_Sampler = gl.getUniformLocation(gl.program,'u_Sampler');
@@ -250,11 +257,12 @@ function main() {
     createGUI();
     //create 3d object
     groupAllVertices();
+    packWholeUVs();
 
     initGLContext(gl);
 
-    //	initTextures(gl);
-    createTexture(gl);
+//    createTexture(gl);
+    initTextures(gl);
 
     createCamera(SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -334,11 +342,11 @@ function runStop() {
 
 function loadTexture(gl, texture, image) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    //	gl.enable(gl.BLEND);
-    //	gl.blendEquation(gl.FUNC_ADD);
-    //	gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    //	gl.blendFunc(gl.ONE, gl.ONE);
-    //	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+//        gl.enable(gl.BLEND);
+//        gl.blendEquation(gl.FUNC_ADD);
+//        gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+//        gl.blendFunc(gl.ONE, gl.ONE);
+//        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -347,19 +355,45 @@ function loadTexture(gl, texture, image) {
 }
 
 function initTextures(gl) {
-    texPoint = gl.createTexture();
+    gTexCont['sphere'] = gl.createTexture();
 
-    texImage = new Image();
+    var texSph = new Image();
 
-    texImage.onload = function () {
-        loadTexture(gl, texPoint, texImage);
+    texSph.onload = function () {
+        loadTexture(gl, gTexCont['sphere'], texSph);
     }
-    texImage.src = 'blob.png';
+//    texImage.src = 'blob.png';
+    texSph.src = 'leg.png';
+
+    gTexCont['point'] = gl.createTexture();
+
+    var texPoint = new Image();
+
+    texPoint.onload = function () {
+        loadTexture(gl, gTexCont['point'], texPoint);
+    }
+    texPoint.src = 'blob.png';
+
+
+    gTexCont['cloth'] = gl.createTexture();
+
+    var texCloth = new Image();
+    texCloth.onload = function () {
+        loadTexture(gl, gTexCont['cloth'], texCloth);
+    }
+    texCloth.src = 'cloth.png';
 
 }
 
 function initGLContext(gl) {
 
+    //create UVS buffer
+    texBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,texBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER,meshUVs,gl.STATIC_DRAW);
+    a_TexCorrd = gl.getAttribLocation(gl.program,'a_TexCoord');
+    gl.vertexAttribPointer(a_TexCorrd,2,gl.FLOAT,false,0,0);
+    gl.enableVertexAttribArray(a_TexCorrd);
     //create vertex buffer
     vertexBuffer = gl.createBuffer();
     if (!vertexBuffer) {
@@ -469,8 +503,10 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     //	gl.bufferSubData(gl.ARRAY_BUFFER,0,meshCont.meshes.curVert.subarray(0,meshCont.nextOff));
     //	gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);
     //	gl.bufferData(gl.ARRAY_BUFFER,meshCont.meshes.curVert,gl.STATIC_DRAW);
+    gl.uniform1i(u_UseUV,0);
     gl.bufferData(gl.ARRAY_BUFFER, meshCont.vertices.subarray(0, meshCont.nextOff), gl.DYNAMIC_DRAW);
 
+    gl.disable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
     //render grid plane
     drawGrid(gl, camPerspective, modelMatrix);
@@ -487,8 +523,17 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
     gl.drawElements(gl.POINTS, gSims['tornado'].faces.length, gl.UNSIGNED_SHORT, 0);
 
     //render sphere
+    gl.uniform1i(u_UseUV,1);
+//    gl.disable(gl.BLEND);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+//        gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(u_Sampler, 0); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
+    gl.bindTexture(gl.TEXTURE_2D, gTexCont['sphere']);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.faces, gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, sph.faces.length, gl.UNSIGNED_SHORT, 0);
+    gl.uniform1i(u_UseUV,0);
 
     if (meshSphere.isUpdate) {
         vec3.copy(sph.offset, [0, 0, -Math.cos(count/50)*0.8]);
@@ -554,15 +599,24 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
 
     //cloth
     gl.uniform1i(u_UseTexture, 0);
+    gl.uniform1i(u_UseUV, 1);
+    gl.disable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
+//        gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.uniform1i(u_Sampler, 2); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
+    gl.bindTexture(gl.TEXTURE_2D, gTexCont['cloth'])
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['cloth'].faces, gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, gSims['cloth'].faces.length, gl.UNSIGNED_SHORT, 0);
     gSims['cloth'].setContact(sph.center, sph.radius);
 
     gl.uniform1i(u_UseTexture, 1);
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1i(u_Sampler, 0); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
+    gl.enable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.uniform1i(u_Sampler, 1); //			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,gSimArr[i].faces,gl.DYNAMIC_DRAW);
+    gl.bindTexture(gl.TEXTURE_2D, gTexCont['point'])
 //    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gSims['flock'].faces, gl.DYNAMIC_DRAW);
 
 //    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 6);
@@ -620,7 +674,7 @@ function renderAnimatedScene(gl, camera, moveArray, t) {
 
 function createCamera(width, height) {
     camPerspective = new PerspectiveCamera(45, width / height, 0.1, 2000);
-    camPerspective.position.set([0, 50, 150]);
+    camPerspective.position.set([0, 50, 230]);
     //    camPerspective = new PerspectiveCamera(60,width/height,1,300);
     //    camPerspective.position.set([0,20,50]);
     camPerspective.lookAt(0.0, 0.0, 0.0);
@@ -658,12 +712,12 @@ function genGrid(size, step) {
     var indices = []
     var colors = []
     var idx = 0;
-    var uvs = [];
     var r = 0xF0 / 0xFF,
             g = 0xF0 / 0xFF,
             b = 0xF0 / 0xFF;
     //    var r = 1.0, g=0, b=0;
     meshGrid = {};
+    meshGrid.uvs = [];
 
     var y = -10;
 
@@ -671,19 +725,19 @@ function genGrid(size, step) {
 
         vertices.push(-size, y, i);
         normals.push(1, 1, 1);
-        uvs.push(0, 0);
+        meshGrid.uvs.push(0, 0);
         colors.push(r, g, b);
         vertices.push(size, y, i);
         normals.push(1, 1, 1);
-        uvs.push(0, 0);
+        meshGrid.uvs.push(0, 0);
         colors.push(r, g, b);
         vertices.push(i, y, -size);
         normals.push(1, 1, 1);
-        uvs.push(0, 0);
+        meshGrid.uvs.push(0, 0);
         colors.push(r, g, b);
         vertices.push(i, y, size);
         normals.push(1, 1, 1);
-        uvs.push(0, 0);
+        meshGrid.uvs.push(0, 0);
         colors.push(r, g, b);
         indices.push(idx, idx + 1, idx + 2, idx + 3)
         idx += 4;
@@ -696,12 +750,74 @@ function genGrid(size, step) {
 }
 
 
+function packWholeUVs()
+{
+    var totalUVs = meshGrid.uvs.length;
+    totalUVs += sph.uvs.length;
+    totalUVs += gSims['flock'].uvs.length;
+    totalUVs += gSims['fire'].uvs.length
+    totalUVs += gSims['smoke'].uvs.length
+    totalUVs +=  gSims['tornado'].uvs.length;
+    totalUVs +=  gSims['cloth'].uvs.length;
+
+    meshUVs = new Float32Array(totalUVs);
+
+    var i = 0;
+    for(i = 0;i<meshUVs.length;++i)
+    {
+        meshUVs[i] = meshGrid.uvs[i];
+    }
+
+    var offset = meshGrid.uvs.length;
+
+    for(i = 0;i<sph.uvs.length;++i)
+    {
+        meshUVs[i+offset] = sph.uvs[i] + offset;
+    }
+
+    offset += sph.uvs.length;
+
+    for(i = 0;i<gSims['flock'].uvs.length;++i)
+    {
+        meshUVs[i+offset] = gSims['flock'].uvs[i] + offset;
+    }
+
+    offset += gSims['flock'].uvs.length;
+
+    for(i = 0;i<gSims['fire'].uvs.length;++i)
+    {
+        meshUVs[i+offset] = gSims['fire'].uvs[i] + offset;
+    }
+
+    offset += gSims['fire'].uvs.length;
+
+    for(i = 0;i<gSims['smoke'].uvs.length;++i)
+    {
+        meshUVs[i+offset] = gSims['smoke'].uvs[i] + offset;
+    }
+
+    offset += gSims['smoke'].uvs.length;
+
+    for(i = 0;i<gSims['tornado'].uvs.length;++i)
+    {
+        meshUVs[i+offset] = gSims['tornado'].uvs[i] + offset;
+    }
+
+    offset += gSims['tornado'].uvs.length;
+
+    for(i = 0;i<gSims['cloth'].uvs.length;++i)
+    {
+        meshUVs[i+offset] = gSims['cloth'].uvs[i] + offset;
+    }
+}
+
+
 function groupAllVertices() {
 
     var i;
     meshCont = new Container(7000); //all vertices are stored in this object
     //	genGrid(300,40);
-    genGrid(100, 5);
+    genGrid(300, 10);
 
     //create bounding cube
 
@@ -722,7 +838,7 @@ function groupAllVertices() {
     //
     //	meshCube = new MeshObject(cube.vertices.length/3,meshCont);
     //	meshCube.setData(cube.vertices,cube.faces);
-    sph = new Sphere(20, 20, 10, [35, 25, 15]);
+    sph = new Sphere(20, 20, 10, [165, 25, 15]);
     meshSphere = new MeshObject(sph.vertices.length / 3, meshCont);
     meshSphere.setData(sph.vertices, sph.colors);
     meshSphere.isUpdate = true;

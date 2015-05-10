@@ -100,7 +100,7 @@ ClothSim.prototype.initCloth = function()
     var mass = 0.5;
     var diam = 5;
     var zoffset = 20;
-    var xoffset = 20;
+    var xoffset = 150;
     for (x = 0; x < this.num_particles_width; x++) {
         for (y = 0; y < this.num_particles_height; y++) {
             index = y * this.num_particles_height + x;
@@ -291,8 +291,10 @@ ClothSim.prototype.initSim = function () {
 	//		}
 	//	}
 
-	this.rawFaces = new Array();
+    this.rawFaces = [];
+    var rawUVs = [];
 	var a, b, c, d;
+    var uva = vec2.create(), uvb = vec2.create(), uvc = vec2.create(), uvd = vec2.create();
 
 	//		for ( i = 0; i < stacks; i ++ ) {
 	//
@@ -302,7 +304,6 @@ ClothSim.prototype.initSim = function () {
 	//			b = i * sliceCount + j + 1;
 	//			c = (i + 1) * sliceCount + j + 1;
 	//			d = (i + 1) * sliceCount + j;
-
 	for (x = 0; x < u - 1; x++) {
 		for (y = 0; y < v - 1; y++) {
 
@@ -311,8 +312,20 @@ ClothSim.prototype.initSim = function () {
 			c = (x + 1) * v + y + 1;
 			d = (x + 1) * v + y;
 
+            uva[0] = y/(v-1);
+            uva[1] = x/(u-1);
+            uvb[0] = (y+1)/(v-1);
+            uvb[1] = x/(u-1);
+            uvc[0] = (y+1)/(v-1);
+            uvc[1] = (x+1)/(u-1);
+            uvd[0] = y/(v-1);
+            uvd[1] = (x+1)/(u-1);
+
 			this.rawFaces.push(a, b, d);
-			this.rawFaces.push(b, c, d);
+            rawUVs.push(uva[0],uva[1],uvb[0],uvb[1],uvd[0],uvd[1]);
+            this.rawFaces.push(b, c, d);
+            rawUVs.push(uvb[0],uvb[1],uvc[0],uvc[1],uvd[0],uvd[1]);
+
 			//			var i0 = y * u + v;
 			//			var i1 = i0 + 1;
 			//			var i2 = i0 + v;
@@ -330,6 +343,7 @@ ClothSim.prototype.initSim = function () {
 
 
 	this.faces = new Uint16Array(this.rawFaces);
+    this.uvs = new Float32Array(rawUVs);
 	this.forces.push(new GravityForce(vec3.fromValues(0, -1, 0), 9.81, 0.125)); //1.0/80));
 
 	var p0, p1;

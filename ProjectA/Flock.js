@@ -95,6 +95,7 @@ Flocking.prototype.initSim = function () {
     this.boidSize = 3;
     var r = this.boidSize;
     var indices = [];
+    var uvs = [];
     //we are generating 4 vertices for each point
     for (var i = 0; i < this.numBoids + this.numPredators; ++i) {
 
@@ -239,19 +240,27 @@ Flocking.prototype.initSim = function () {
         //make faces
         //0,1,2
         indices.push(6*i);
+        uvs.push(0,0);
         indices.push(6*i+1);
+        uvs.push(1,0);
         indices.push(6*i+2);
+        uvs.push(0,1);
 
         //0,3,1
         indices.push(6*i+3);
+        uvs.push(0,0);
         indices.push(6*i+5);
+        uvs.push(1,1);
         indices.push(6*i+4);
+        uvs.push(1,0);
 
         //        this.rotateBoid(i,curVel);
     }
 
     this.faces = new Uint16Array(indices);
+    this.uvs = new Float32Array(uvs);
     //add wall constraints
+
 
     this.constraints.push(new WallConstraint([0, -1, 0], [500, 0, 0], [0, 0, -500], [0, 60, 0]));
     this.constraints.push(new WallConstraint([0, 1, 0], [500, 0, 0], [0, 0, 500], [0, 0, 0]));
